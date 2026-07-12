@@ -23,4 +23,9 @@ else
 fi
 
 echo "Starting API on port ${PORT:-8000}..."
-exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+# --proxy-headers + --forwarded-allow-ips="*" make uvicorn trust the platform's
+# reverse proxy so request.client.host reflects the real caller (Render/most
+# PaaS terminate TLS at a proxy). Safe here because only the platform proxy can
+# reach the container; slowapi additionally keys off X-Forwarded-For directly.
+exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}" \
+  --proxy-headers --forwarded-allow-ips="*"

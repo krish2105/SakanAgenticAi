@@ -1,6 +1,13 @@
 import os
 import warnings
 
+# Deployment environment. "production" flips several dev-only conveniences into
+# fail-closed behavior: a missing JWT secret, or an enabled-but-unverified
+# Stripe/WhatsApp webhook, becomes a hard startup error instead of a silent
+# insecure fallback (see _validate_production_config at the bottom of this file).
+SAKAN_ENV = os.environ.get("SAKAN_ENV", "development").strip().lower()
+IS_PRODUCTION = SAKAN_ENV == "production"
+
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 QDRANT_URL = os.environ.get("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY")  # required for Qdrant Cloud, unused for self-hosted
@@ -11,6 +18,13 @@ REASONING_MODEL = os.environ.get("SAKAN_REASONING_MODEL", "claude-sonnet-5")
 
 JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
 if not JWT_SECRET_KEY:
+    if IS_PRODUCTION:
+        raise RuntimeError(
+            "JWT_SECRET_KEY must be set when SAKAN_ENV=production. Without it the app "
+            "would fall back to a hardcoded dev secret, making every issued login token "
+            "forgeable by anyone who can read this source. Generate one with "
+            "`openssl rand -hex 32`."
+        )
     JWT_SECRET_KEY = "dev-only-insecure-secret-do-not-use-in-production"
     warnings.warn(
         "JWT_SECRET_KEY is not set; using a hardcoded dev-only value. "
@@ -50,6 +64,41 @@ WHATSAPP_PHONE_NUMBER_ID = os.environ.get("WHATSAPP_PHONE_NUMBER_ID")  # the sen
 DATA_SOURCE = os.environ.get("DATA_SOURCE", "synthetic")
 LICENSED_DATA_FEED_URL = os.environ.get("LICENSED_DATA_FEED_URL")
 LICENSED_DATA_FEED_API_KEY = os.environ.get("LICENSED_DATA_FEED_API_KEY")
+
+def _validate_production_config() -> None:
+    """When SAKAN_ENV=production, refuse to boot with a webhook that's enabled
+    but unverifiable. Both Stripe and WhatsApp webhooks fall back to accepting
+    *unsigned* payloads when their signing secret is unset -- fine for local dev,
+    but in production that's a forgeable-subscription-upgrade / forged-inbound-
+    message hole. If the integration is configured at all, its signing secret
+    becomes mandatory."""
+    problems: list[str] = []
+
+    if STRIPE_SECRET_KEY and not STRIPE_WEBHOOK_SECRET:
+        problems.append(
+            "STRIPE_WEBHOOK_SECRET is required because STRIPE_SECRET_KEY is set "
+            "(otherwise /billing/webhook would accept unsigned, forgeable events)"
+        )
+
+    whatsapp_configured = any(
+        [WHATSAPP_VERIFY_TOKEN, WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID]
+    )
+    if whatsapp_configured and not WHATSAPP_APP_SECRET:
+        problems.append(
+            "WHATSAPP_APP_SECRET is required because WhatsApp is configured "
+            "(otherwise /whatsapp/webhook would accept unsigned, forged messages)"
+        )
+
+    if problems:
+        raise RuntimeError(
+            "Refusing to start in production (SAKAN_ENV=production) with insecure "
+            "config:\n  - " + "\n  - ".join(problems)
+        )
+
+
+if IS_PRODUCTION:
+    _validate_production_config()
+
 
 # Off by default: sentence-transformers + its torch backend is enough on its
 # own (a single resident instance, not even counting duplicates) to push a

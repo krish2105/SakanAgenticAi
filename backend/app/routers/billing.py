@@ -152,9 +152,16 @@ async def stripe_webhook(request: Request) -> dict:
     try:
         if config.STRIPE_WEBHOOK_SECRET:
             event = stripe.Webhook.construct_event(payload, sig_header, config.STRIPE_WEBHOOK_SECRET)
+        elif config.IS_PRODUCTION:
+            # Fail closed: an unsigned event in production could forge a
+            # subscription upgrade. config._validate_production_config already
+            # blocks boot in this state, but refuse here too as defense in depth.
+            raise HTTPException(
+                status_code=400,
+                detail="STRIPE_WEBHOOK_SECRET is required in production; refusing unsigned webhook.",
+            )
         else:
             # No webhook secret configured -- accept unverified in dev only.
-            # Every production deployment MUST set STRIPE_WEBHOOK_SECRET.
             import json
 
             event = json.loads(payload)

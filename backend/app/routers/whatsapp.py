@@ -60,11 +60,12 @@ async def verify_webhook(request: Request) -> Response:
 def verify_signature(payload: bytes, signature_header: str | None) -> bool:
     """Meta signs each webhook POST with X-Hub-Signature-256 (HMAC-SHA256
     over the raw body, keyed by the app secret). No WHATSAPP_APP_SECRET
-    configured means accept unverified -- dev-only fallback, same posture
-    as the Stripe webhook's unverified path; every production deployment
-    MUST set WHATSAPP_APP_SECRET."""
+    configured means accept unverified in dev only -- in production this fails
+    closed (config._validate_production_config also blocks boot when WhatsApp
+    is configured without the secret); every production deployment MUST set
+    WHATSAPP_APP_SECRET."""
     if not config.WHATSAPP_APP_SECRET:
-        return True
+        return not config.IS_PRODUCTION
     if not signature_header or not signature_header.startswith("sha256="):
         return False
     expected = hmac.new(config.WHATSAPP_APP_SECRET.encode(), payload, hashlib.sha256).hexdigest()

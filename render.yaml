@@ -74,6 +74,10 @@ services:
     plan: free
     healthCheckPath: /health
     envVars:
+      # Fail-closed mode: refuse to boot with a missing JWT secret or an
+      # enabled-but-unverified Stripe/WhatsApp webhook (see backend/app/config.py).
+      - key: SAKAN_ENV
+        value: production
       - key: DATABASE_URL
         sync: false
       - key: ANTHROPIC_API_KEY

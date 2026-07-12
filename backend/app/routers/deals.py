@@ -15,8 +15,23 @@ from app.services.pdf import markdown_to_pdf_bytes
 from app.services.pipeline_runner import create_deal_query, ensure_tables, get_deal_query, run_pipeline
 from app.streaming import subscribe, unsubscribe
 
+def client_ip_key(request: Request) -> str:
+    """Rate-limit key that survives Render's (and most PaaS) reverse proxy.
+
+    slowapi's default get_remote_address reads request.client.host, which
+    behind a proxy is the *proxy's* IP -- so every user shares one bucket and
+    the 10/minute limit throttles the whole world together. The real client is
+    the left-most entry of X-Forwarded-For (the proxy appends, so [0] is the
+    original caller). Falls back to the socket address when the header is
+    absent (local/dev)."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return get_remote_address(request)
+
+
 router = APIRouter(prefix="/deals", tags=["deals"])
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=client_ip_key)
 
 # asyncio's event loop only keeps a *weak* reference to tasks it's running --
 # a fire-and-forget asyncio.create_task() with no other reference can be
