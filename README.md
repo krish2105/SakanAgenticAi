@@ -122,27 +122,47 @@ needs a value produced by the one before it.
    the repo root, so it can also `COPY regulations/` in — don't rename or
    move that directory without updating the Dockerfile).
 5. Watch the deploy log. On first boot, `backend/docker-entrypoint.sh` runs
-   `seed_db.py` (loads the synthetic demo dataset into your Neon Postgres)
-   and `ingest_regulations.py` (embeds the 12 regulatory docs into your
-   Qdrant Cloud cluster) before starting `uvicorn`. Both are best-effort — a
-   failure in either logs a warning and the API still starts — but check the
-   log for `Upserted 57 clauses into Qdrant` to confirm the RAG corpus
-   actually loaded; if that line is missing, the Compliance Agent will run
-   in "unable to verify" fallback mode until you re-trigger a deploy.
+   `seed_db.py` (loads the synthetic demo dataset into your Neon Postgres) —
+   safe on any instance size. It does **not** run the regulations ingest
+   automatically (`RUN_REGULATIONS_INGEST_ON_BOOT` defaults to `false`) —
+   see the note below for why, and how to run it.
 6. Once live, hit `https://<your-service>.onrender.com/health` — expect
    `{"status":"ok"}`. Then `https://<your-service>.onrender.com/market/ticker`
    should return real seeded transactions.
 7. **Copy this backend URL.** You need it for step 4.
 
-Notes that are easy to mistake for bugs: Render's *free* web service plan
-spins down after ~15 min idle and takes 30-60s to wake on the next request
-(the first Vercel-to-Render call after a quiet period will look "hung" — it
-isn't); free-tier RAM (512 MB) may be tight for `sentence-transformers`/
-`torch` during the regulations-ingest step on first boot — if step 5's log
-shows the ingest failing with an OOM-style error, re-run it manually
-(`python scripts/ingest_regulations.py --regulations-dir /regulations` from
-a Render shell) or temporarily bump the plan for that one deploy; Neon's free
-tier auto-suspends an idle database and takes a moment to wake, similar to
+**Loading the compliance corpus (a separate step, by design):** `ingest_regulations.py`
+loads `sentence-transformers`/PyTorch to embed the 12 regulatory docs, which
+reliably exceeds Render's free-tier 512MB and gets the *entire container*
+OOM-killed by the platform — not a graceful per-step failure the entrypoint
+script's own error handling can catch, since the OS kills the whole process
+tree from outside. Discovered by an actual failed deploy on this exact free
+tier, not reasoned through in the abstract: the deploy log showed only
+`Deploying...` / `Setting WEB_CONCURRENCY=1`, then Render's Events tab
+reported `Ran out of memory (used over 512MB) while running your code`,
+with no chance for the "ingestion failed, continuing" fallback message to
+ever print. Two free ways to actually load it, neither needs a paid Render
+plan:
+- **Recommended:** add `QDRANT_URL`/`QDRANT_API_KEY` as repo secrets
+  (Settings → Secrets and variables → Actions), then manually trigger
+  [`.github/workflows/reingest-corpus.yml`](./.github/workflows/reingest-corpus.yml)
+  (Actions tab → that workflow → "Run workflow") — GitHub-hosted runners have
+  several GB of RAM, no OOM risk, and this workflow already exists for the
+  weekly scheduled re-sync.
+- Or run it from your own machine: `cd backend && pip install -r
+  requirements.txt && python scripts/ingest_regulations.py --regulations-dir
+  ../regulations --qdrant-url <your Qdrant Cloud URL> --qdrant-api-key <your key>`.
+
+Until one of those runs at least once, the Compliance Agent responds in its
+documented "unable to verify — recommend manual RERA check" fallback mode,
+which is a real, intended state (not a crash) — the rest of the app
+(comps, valuation, memo) works normally in the meantime.
+
+Other notes that are easy to mistake for bugs: Render's *free* web service
+plan spins down after ~15 min idle and takes 30-60s to wake on the next
+request (the first Vercel-to-Render call after a quiet period will look
+"hung" — it isn't); Neon's free tier auto-suspends an idle database and
+takes a moment to wake, similar to
 Render's cold start — stack the two and a truly cold first request could take
 a while, which is expected, not a hang.
 
@@ -179,13 +199,17 @@ a while, which is expected, not a hang.
 - **CORS errors in the browser console**: shouldn't happen — `app/main.py`
   sets `allow_origins=["*"]` for this demo's scope — but if you've tightened
   that for your own deployment, make sure your Vercel domain is on the list.
-- **Compliance Agent always returns "unable to verify"**: the regulations
-  ingest either failed on boot (check the Render deploy log for the
-  `Upserted 57 clauses` line) or `QDRANT_URL`/`QDRANT_API_KEY` are wrong.
-  Re-run manually via a Render shell: `python scripts/ingest_regulations.py
-  --regulations-dir /regulations`, or add `QDRANT_URL`/`QDRANT_API_KEY` as
-  repo secrets so [`.github/workflows/reingest-corpus.yml`](./.github/workflows/reingest-corpus.yml)
-  re-syncs it weekly without a manual shell each time.
+- **Compliance Agent always returns "unable to verify"**: expected until
+  the regulations corpus has been ingested at least once — this doesn't
+  happen automatically on Render's free tier (see "Loading the compliance
+  corpus" above; a Render free-tier shell hits the same 512MB OOM risk as
+  the boot-time ingest would). Trigger
+  [`.github/workflows/reingest-corpus.yml`](./.github/workflows/reingest-corpus.yml)
+  manually (Actions tab → "Run workflow", after adding `QDRANT_URL`/
+  `QDRANT_API_KEY` as repo secrets), or run `ingest_regulations.py` from
+  your own machine. If you've already done that and it's still failing,
+  double check `QDRANT_URL`/`QDRANT_API_KEY` on the Render service match
+  your Qdrant Cloud cluster exactly.
 
 **Honesty check on this guide:** every step above matches Render/Vercel/Qdrant
 Cloud's documented flows and was reasoned through carefully, but couldn't be
