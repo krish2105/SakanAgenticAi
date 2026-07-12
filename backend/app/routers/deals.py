@@ -18,6 +18,13 @@ from app.streaming import subscribe, unsubscribe
 router = APIRouter(prefix="/deals", tags=["deals"])
 limiter = Limiter(key_func=get_remote_address)
 
+# asyncio's event loop only keeps a *weak* reference to tasks it's running --
+# a fire-and-forget asyncio.create_task() with no other reference can be
+# garbage-collected mid-run, silently, with no exception and no log line.
+# This set holds a strong reference until each task finishes so the pipeline
+# actually gets to completion instead of vanishing partway through.
+_background_tasks: set[asyncio.Task] = set()
+
 
 class DealQueryRequest(BaseModel):
     raw_query: str
@@ -60,7 +67,9 @@ async def submit_deal_query(
         enforce_quota(session, current_user)
 
     query_id = create_deal_query(body.raw_query, owner_id=current_user.user_id)
-    asyncio.create_task(run_pipeline(query_id, body.raw_query))
+    task = asyncio.create_task(run_pipeline(query_id, body.raw_query))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
     return DealQueryResponse(query_id=str(query_id))
 
 
