@@ -35,53 +35,125 @@ echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
 npm run dev
 ```
 
-## Deploy to production (Render + Vercel)
-
-Per `ARCHITECTURE.md` Section 3: frontend → Vercel, backend + Postgres + Qdrant
-→ Docker Compose on Render (or Railway). This repo ships one-command configs
-for both:
-
-**Backend + Postgres + Qdrant (Render Blueprint):**
-1. Render dashboard → New → Blueprint → point at this repo. Render reads
-   [`render.yaml`](./render.yaml) and provisions `sakan-postgres`,
-   `sakan-backend`, and `sakan-qdrant` in one step.
-2. Set `ANTHROPIC_API_KEY` on the `sakan-backend` service (it's declared
-   `sync: false` in the blueprint, so Render prompts for it rather than
-   needing a value committed anywhere) — optional; every agent has a
-   deterministic fallback and runs fine without it.
-3. On boot, `backend/docker-entrypoint.sh` seeds the synthetic demo dataset
-   and ingests the regulatory corpus into Qdrant automatically (both
-   idempotent/best-effort — a failed ingest attempt logs and continues
-   rather than blocking the API from starting).
-4. Note the resulting public URL (e.g. `https://sakan-backend.onrender.com`).
-
-**Frontend (Vercel):**
-1. Vercel dashboard → New Project → import this repo → set **Root Directory**
-   to `frontend/` (or run `vercel` from inside `frontend/` with the Vercel
-   CLI — [`frontend/vercel.json`](./frontend/vercel.json) is already there).
-2. Set the `NEXT_PUBLIC_API_URL` project env var to the Render backend URL
-   from the step above.
-3. Deploy.
-
-**Honesty check on these deploy configs specifically:** they were written
-carefully and match Render/Vercel's documented Blueprint/CLI conventions, but
-could not be run end-to-end from this session — the sandbox's egress proxy is
-allowlist-based (npm, PyPI, GitHub, `api.anthropic.com` only) and returns 403
-on `vercel.com`, `render.com`, and even a plain `docker build` of
-`backend/Dockerfile` (Docker Hub blob pulls are blocked here the same way the
-`qdrant/qdrant` image pull was earlier). What *was* verified: the Dockerfile
-and entrypoint script are syntactically valid (`bash -n`) and reviewed by
-hand against the already-tested `seed_db.py`/`ingest_regulations.py` CLIs,
-and `render.yaml`/`vercel.json` both parse as valid YAML/JSON. Treat the
-Render service-to-service URL convention (`QDRANT_URL=http://sakan-qdrant:6333`)
-as the one detail worth double-checking against Render's current docs before
-relying on it, since that's the part with no local way to verify at all.
-
 Open http://localhost:3000. Without `ANTHROPIC_API_KEY` set, the pipeline
 still runs end-to-end — the Query Agent falls back to a default
 `comps_search` classification and the Valuation/Memo agents fall back to
 deterministic comp-median/state-assembled results (see "Status" below) — so
 you can exercise the full data path with zero API cost before wiring in a key.
+
+## Deploy to production (Render + Vercel + Qdrant Cloud)
+
+Per `ARCHITECTURE.md` Section 3: frontend → Vercel, backend + Postgres →
+Render. Qdrant runs on **Qdrant Cloud's free tier** rather than self-hosted
+on Render — Render's free tier has no Private Services (needed for a
+non-public vector DB), and a public Docker-image web service for Qdrant has
+port-binding behavior this session had no way to verify. Do these in order —
+each step needs a value produced by the one before it.
+
+### 1. Qdrant Cloud (~3 min)
+
+1. Sign up at https://cloud.qdrant.io (free tier: 1 GB cluster, no card
+   required as of this writing — confirm current terms on their pricing page).
+2. Create a cluster. Note its **Cluster URL** (`https://xxxxx.cloud.qdrant.io`,
+   port `6333` included or appended).
+3. Create an **API key** for that cluster. Copy it now — Qdrant Cloud shows
+   it once.
+
+### 2. Backend + Postgres on Render (~5 min)
+
+1. Push/merge this branch to whichever branch your Render deploy will track
+   (Render Blueprints deploy from a specific branch — pick one and make sure
+   it has `render.yaml` at the repo root).
+2. Render dashboard → **New** → **Blueprint** → connect this GitHub repo →
+   select that branch. Render parses [`render.yaml`](./render.yaml) and shows
+   a plan: one **Web Service** (`sakan-backend`) and one **Postgres**
+   database (`sakan-postgres`).
+3. Click **Apply**. Render provisions Postgres first, then builds
+   `sakan-backend` from `backend/Dockerfile` (build context is the repo
+   root, so it can also `COPY regulations/` in — don't rename or move that
+   directory without updating the Dockerfile).
+4. The blueprint declares three env vars as `sync: false`, so Render will
+   prompt you to fill them in on the `sakan-backend` service page:
+   - `QDRANT_URL` → the Cluster URL from step 1
+   - `QDRANT_API_KEY` → the API key from step 1
+   - `ANTHROPIC_API_KEY` → optional (see the question below); leave blank to
+     run entirely on fallbacks
+5. `DATABASE_URL` is wired automatically (`fromDatabase` in the blueprint) —
+   don't set it manually.
+6. Watch the deploy log. On first boot, `backend/docker-entrypoint.sh` runs
+   `seed_db.py` (loads the synthetic demo dataset into Postgres) and
+   `ingest_regulations.py` (embeds the 12 regulatory docs into your Qdrant
+   Cloud cluster) before starting `uvicorn`. Both are best-effort — a failure
+   in either logs a warning and the API still starts — but check the log for
+   `Upserted 57 clauses into Qdrant` to confirm the RAG corpus actually
+   loaded; if that line is missing, the Compliance Agent will run in
+   "unable to verify" fallback mode until you re-trigger a deploy.
+7. Once live, hit `https://<your-service>.onrender.com/health` — expect
+   `{"status":"ok"}`. Then `https://<your-service>.onrender.com/market/ticker`
+   should return real seeded transactions.
+8. **Copy this backend URL.** You need it for step 3.
+
+Free-tier notes that are easy to mistake for bugs: the free Postgres instance
+expires after 90 days (Render emails you before that — upgrade or recreate);
+the free web service spins down after ~15 min idle and takes 30-60s to wake
+on the next request (the first Vercel-to-Render call after a quiet period
+will look "hung" — it isn't); free-tier RAM (512 MB) may be tight for
+`sentence-transformers`/`torch` during the regulations-ingest step on first
+boot — if step 6's log shows the ingest failing with an OOM-style error,
+re-run it manually against a bigger instance, or temporarily bump the plan
+for that one deploy.
+
+### 3. Frontend on Vercel (~3 min)
+
+1. Vercel dashboard → **Add New** → **Project** → import this GitHub repo.
+2. In the import screen's **Root Directory** field, set it to `frontend`
+   (Vercel won't find `package.json` at the repo root otherwise — this is
+   the single most common failure mode for monorepo imports like this one).
+   Framework preset should auto-detect as Next.js; leave build/install
+   commands as default ([`frontend/vercel.json`](./frontend/vercel.json)
+   already pins them explicitly).
+3. Add an environment variable: `NEXT_PUBLIC_API_URL` = the Render backend
+   URL from step 2.8 (e.g. `https://sakan-backend.onrender.com`, **no
+   trailing slash**).
+4. Deploy. Vercel builds and gives you a `https://<project>.vercel.app` URL.
+5. Open it, submit a query on the Command Deck, and confirm the Agent Trace
+   drawer updates live — this exercises the WebSocket connection end-to-end
+   (browser → Vercel → your Render backend's `wss://` upgrade), which is the
+   part most likely to need a second look if something's off.
+
+### If something doesn't connect
+
+- **Blank market snapshot / comps table, no errors in the browser console**:
+  `NEXT_PUBLIC_API_URL` is likely wrong or missing a scheme (`https://`).
+  `lib/api.ts`'s `safeGet` silently falls back to bundled demo data on any
+  fetch failure by design, so a misconfigured API URL doesn't crash the
+  page — it just quietly shows fake numbers. Check the Network tab for
+  failed requests to confirm.
+- **WebSocket never connects (trace drawer stuck on "connecting…")**: confirm
+  the Render service is awake (free tier cold start, see above) and that
+  `NEXT_PUBLIC_API_URL` doesn't have a trailing slash — `lib/api.ts` derives
+  the `wss://` URL by string-replacing `http` with `ws` on that exact value.
+- **CORS errors in the browser console**: shouldn't happen — `app/main.py`
+  sets `allow_origins=["*"]` for this demo's scope — but if you've tightened
+  that for your own deployment, make sure your Vercel domain is on the list.
+- **Compliance Agent always returns "unable to verify"**: the regulations
+  ingest either failed on boot (check the Render deploy log for the
+  `Upserted 57 clauses` line) or `QDRANT_URL`/`QDRANT_API_KEY` are wrong.
+  Re-run manually via a Render shell: `python scripts/ingest_regulations.py
+  --regulations-dir /regulations`.
+
+**Honesty check on this guide:** every step above matches Render/Vercel/Qdrant
+Cloud's documented flows and was reasoned through carefully, but couldn't be
+executed end-to-end from this session — its egress proxy is allowlist-based
+(npm, PyPI, GitHub, `api.anthropic.com` only) and returns 403 on `vercel.com`,
+`render.com`, `cloud.qdrant.io`, and even a plain `docker build` of
+`backend/Dockerfile` against Docker Hub. What *was* verified locally: the
+Dockerfile/entrypoint are syntactically valid, `render.yaml`/`vercel.json`
+parse as valid YAML/JSON, and the `QDRANT_API_KEY` plumbing through
+`build_qdrant_client`/`retrieve_clauses` is covered by the existing test
+suite (25 passing). If you hit an error not covered above, it's genuinely
+new information about a step this session couldn't verify — worth reporting
+back so the guide can be corrected.
 
 ## Data sources
 
