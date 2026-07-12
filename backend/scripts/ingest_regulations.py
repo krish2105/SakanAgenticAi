@@ -16,6 +16,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from dataclasses import dataclass, asdict
@@ -94,12 +95,12 @@ def get_embedder(model_name: str = EMBEDDING_MODEL):
     return SentenceTransformer(model_name)
 
 
-def build_qdrant_client(qdrant_url: str):
+def build_qdrant_client(qdrant_url: str, api_key: str | None = None):
     from qdrant_client import QdrantClient
 
     if qdrant_url == ":memory:":
         return QdrantClient(location=":memory:")
-    return QdrantClient(url=qdrant_url)
+    return QdrantClient(url=qdrant_url, api_key=api_key)
 
 
 def upsert_chunks(chunks: list[Chunk], client, embedder=None) -> int:
@@ -129,7 +130,13 @@ def upsert_chunks(chunks: list[Chunk], client, embedder=None) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--regulations-dir", type=Path, default=Path("regulations"))
-    parser.add_argument("--qdrant-url", type=str, default="http://localhost:6333")
+    parser.add_argument("--qdrant-url", type=str, default=os.environ.get("QDRANT_URL", "http://localhost:6333"))
+    parser.add_argument(
+        "--qdrant-api-key",
+        type=str,
+        default=os.environ.get("QDRANT_API_KEY"),
+        help="Required for Qdrant Cloud; unused for self-hosted Qdrant. Defaults to $QDRANT_API_KEY.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Parse and chunk only; skip embedding + Qdrant")
     args = parser.parse_args()
 
@@ -143,7 +150,7 @@ def main() -> None:
         print("Dry run — skipping embedding/Qdrant upsert.")
         return
 
-    client = build_qdrant_client(args.qdrant_url)
+    client = build_qdrant_client(args.qdrant_url, api_key=args.qdrant_api_key)
     n = upsert_chunks(chunks, client)
     print(f"Upserted {n} clauses into Qdrant collection '{COLLECTION_NAME}' at {args.qdrant_url}.")
 

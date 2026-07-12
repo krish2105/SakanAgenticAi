@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
 from ingest_regulations import COLLECTION_NAME, build_qdrant_client, get_embedder  # noqa: E402
-from app.config import QDRANT_URL  # noqa: E402
+from app.config import QDRANT_API_KEY, QDRANT_URL  # noqa: E402
 
 
 def compose_retrieval_query(
@@ -27,7 +27,7 @@ def retrieve_clauses(
     embedder=None,
 ) -> list[dict]:
     """Returns [{clause_id, text, source_doc, similarity}], per DealState.retrieved_clauses."""
-    client = client or build_qdrant_client(QDRANT_URL)
+    client = client or build_qdrant_client(QDRANT_URL, api_key=QDRANT_API_KEY)
     embedder = embedder or get_embedder()
 
     vector = embedder.encode([query_text], normalize_embeddings=True)[0]
