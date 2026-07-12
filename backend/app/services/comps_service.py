@@ -1,33 +1,42 @@
 """Structured SQL comp retrieval + semantic re-rank (ARCHITECTURE.md Section 5.3)."""
 from __future__ import annotations
 
+import sys
 from datetime import date
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Building, Transaction
 
-_embedder = None
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+
 _embedder_load_failed = False
 
 
 def _get_embedder():
-    """Lazily loads the sentence-transformers model. Returns None (rather
-    than raising) if it can't be loaded -- e.g. no network access to
-    Hugging Face -- so semantic_rerank degrades to a heuristic instead of
-    crashing the pipeline."""
-    global _embedder, _embedder_load_failed
-    if _embedder is not None or _embedder_load_failed:
-        return _embedder
+    """Returns the shared sentence-transformers singleton (same instance the
+    Compliance Agent's retrieval.py uses -- see ingest_regulations.get_embedder,
+    cached via lru_cache). Two independently-cached copies of the same ~90MB
+    model plus its torch backend were enough to OOM a 512MB free-tier
+    container the moment a single pipeline run touched both this agent and
+    the Compliance Agent (comps_search-only queries never hit that path,
+    which is why this went unnoticed until query_agent's routing fix let
+    valuation/compliance/full_memo queries actually reach both). Returns
+    None (rather than raising) if it can't be loaded -- e.g. no network
+    access to Hugging Face -- so semantic_rerank degrades to a heuristic
+    instead of crashing the pipeline."""
+    global _embedder_load_failed
+    if _embedder_load_failed:
+        return None
     try:
-        from sentence_transformers import SentenceTransformer
+        from ingest_regulations import get_embedder
 
-        _embedder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+        return get_embedder()
     except Exception:  # noqa: BLE001
         _embedder_load_failed = True
-        _embedder = None
-    return _embedder
+        return None
 
 
 def query_transactions_sql(
