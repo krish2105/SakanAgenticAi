@@ -98,12 +98,26 @@ needs a value produced by the one before it.
    select that branch. Render parses [`render.yaml`](./render.yaml) and shows
    a plan: one **Web Service** (`sakan-backend`), free plan, no database
    (Postgres is external now — see step 1).
-3. Before or after clicking **Apply**, fill in the four `sync: false` env
-   vars on the `sakan-backend` service page:
+3. Before or after clicking **Apply**, fill in env vars on the
+   `sakan-backend` service page. Render lists every `sync: false` var from
+   `render.yaml` (18 of them as this repo has grown past just the core
+   deploy — Stripe billing, WhatsApp, Redis, data-source options are all in
+   there too); **only these four are required to get a working deploy**,
+   everything else is optional and the app degrades gracefully without it
+   (a startup warning, not a crash):
    - `DATABASE_URL` → the Neon connection string from step 1
    - `QDRANT_URL` → the Cluster URL from step 2
    - `QDRANT_API_KEY` → the API key from step 2
-   - `ANTHROPIC_API_KEY` → optional; leave blank to run entirely on fallbacks
+   - `JWT_SECRET_KEY` → **required for real users**, not just recommended —
+     generate one with `openssl rand -hex 32`; without it every login token
+     is forgeable by anyone who reads this repo's source (see "Auth" above)
+   - `ANTHROPIC_API_KEY` → optional; leave blank to run entirely on
+     deterministic fallbacks (no live LLM reasoning, but the full data path
+     works)
+   - Everything else (`CORS_ORIGINS`, `REDIS_URL`, `STRIPE_*`,
+     `WHATSAPP_*`, `DATA_SOURCE`, `FRONTEND_URL`, `LICENSED_DATA_FEED_*`) —
+     leave blank for a first deploy; come back to them per their own README
+     sections (Billing, WhatsApp, Data partnership) once the core app is live.
 4. Render builds `sakan-backend` from `backend/Dockerfile` (build context is
    the repo root, so it can also `COPY regulations/` in — don't rename or
    move that directory without updating the Dockerfile).
