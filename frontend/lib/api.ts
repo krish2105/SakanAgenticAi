@@ -152,6 +152,66 @@ export function dealStreamUrl(queryId: string, token: string): string {
   return `${WS_BASE}/ws/deals/${queryId}/stream?token=${encodeURIComponent(token)}`;
 }
 
+// --- Billing (Phase B) ---
+
+export interface BillingPlan {
+  label: string;
+  price_aed_monthly: number | null; // null = "custom" (Enterprise)
+  monthly_query_limit: number | null; // null = unmetered
+  self_serve_checkout: boolean;
+}
+
+export type BillingPlans = Record<"starter" | "pro" | "team" | "enterprise", BillingPlan>;
+
+export interface BillingStatus {
+  tier: string;
+  label: string;
+  monthly_query_limit: number | null;
+  queries_used_this_month: number;
+  queries_remaining: number | null;
+  subscription_status: string | null;
+}
+
+const DEMO_PLANS: BillingPlans = {
+  starter: { label: "Starter", price_aed_monthly: 0, monthly_query_limit: 5, self_serve_checkout: false },
+  pro: { label: "Pro", price_aed_monthly: 299, monthly_query_limit: 50, self_serve_checkout: true },
+  team: { label: "Team", price_aed_monthly: 999, monthly_query_limit: null, self_serve_checkout: true },
+  enterprise: { label: "Enterprise", price_aed_monthly: null, monthly_query_limit: null, self_serve_checkout: false },
+};
+
+export async function fetchBillingPlans(): Promise<BillingPlans> {
+  return safeGet<BillingPlans>("/billing/plans", DEMO_PLANS);
+}
+
+export async function fetchBillingStatus(token: string): Promise<BillingStatus | null> {
+  try {
+    return await authedGet<BillingStatus>("/billing/me", token);
+  } catch (err) {
+    if (err instanceof AuthRequiredError) throw err;
+    return null;
+  }
+}
+
+export async function startCheckout(tier: "pro" | "team", token: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/billing/checkout`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(token) },
+    body: JSON.stringify({ tier }),
+  });
+  if (res.status === 401) throw new AuthRequiredError();
+  if (!res.ok) throw new Error(await parseAuthError(res));
+  const data = await res.json();
+  return data.checkout_url as string;
+}
+
+export async function openBillingPortal(token: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/billing/portal`, { method: "POST", headers: authHeaders(token) });
+  if (res.status === 401) throw new AuthRequiredError();
+  if (!res.ok) throw new Error(await parseAuthError(res));
+  const data = await res.json();
+  return data.portal_url as string;
+}
+
 /** A plain <a href> or window.open can't attach an Authorization header
  * either, so the PDF export is fetched with the header and downloaded as a
  * blob instead of navigated to directly. */

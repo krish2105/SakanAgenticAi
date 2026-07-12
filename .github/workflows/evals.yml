@@ -1,0 +1,55 @@
+name: Agent quality evals
+
+# Runs backend/scripts/run_evals.py on a schedule so a regression in comps
+# relevance, valuation accuracy, or the citation guardrail (see README
+# "Data retention"'s sibling section, "Evals") shows up as a failed run,
+# not silent drift someone notices months later -- see the MVP roadmap's
+# Phase B "eval pipeline, not manual spot-checks" item.
+#
+# The DB-backed metrics (comps relevance, valuation accuracy) and the
+# citation guardrail battery need no secrets -- they run against the
+# seeded synthetic dataset already committed to this repo. The retrieval
+# quality check is best-effort and needs network access to download the
+# sentence-transformers model; it degrades to "skipped" rather than
+# failing the run when that's unavailable.
+
+on:
+  schedule:
+    - cron: "42 4 * * 1" # weekly, Monday
+  workflow_dispatch: {}
+  push:
+    branches: ["**"]
+    paths:
+      - "backend/app/agents/**"
+      - "backend/app/services/comps_service.py"
+      - "backend/scripts/run_evals.py"
+  pull_request:
+    branches: ["**"]
+    paths:
+      - "backend/app/agents/**"
+      - "backend/app/services/comps_service.py"
+      - "backend/scripts/run_evals.py"
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run eval suite
+        env:
+          JWT_SECRET_KEY: "ci-test-secret-not-for-production"
+        run: python scripts/run_evals.py

@@ -1,13 +1,14 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Map, BarChart3 } from "lucide-react";
+import { LayoutGrid, Map, BarChart3, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/", label: "Command Deck", icon: LayoutGrid },
   { href: "/comps", label: "Comps Explorer", icon: Map },
   { href: "/market", label: "Analytics", icon: BarChart3 },
+  { href: "/billing", label: "Billing", icon: CreditCard },
 ];
 
 export function NavRail() {

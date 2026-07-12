@@ -8,9 +8,11 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.auth import get_current_user, get_current_user_ws
+from app.db import get_session_factory
 from app.models import User
+from app.services.billing_service import enforce_quota
 from app.services.pdf import markdown_to_pdf_bytes
-from app.services.pipeline_runner import create_deal_query, get_deal_query, run_pipeline
+from app.services.pipeline_runner import create_deal_query, ensure_tables, get_deal_query, run_pipeline
 from app.streaming import subscribe, unsubscribe
 
 router = APIRouter(prefix="/deals", tags=["deals"])
@@ -51,6 +53,11 @@ async def submit_deal_query(
 ) -> DealQueryResponse:
     if not body.raw_query or not body.raw_query.strip():
         raise HTTPException(status_code=422, detail="raw_query must not be empty")
+
+    ensure_tables()
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        enforce_quota(session, current_user)
 
     query_id = create_deal_query(body.raw_query, owner_id=current_user.user_id)
     asyncio.create_task(run_pipeline(query_id, body.raw_query))

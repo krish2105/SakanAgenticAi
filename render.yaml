@@ -34,6 +34,16 @@
 #                        fanning out correctly the moment you scale beyond
 #                        one. A free Upstash Redis instance is the usual
 #                        pairing if you need it before then.
+#   STRIPE_SECRET_KEY,
+#   STRIPE_WEBHOOK_SECRET,
+#   STRIPE_PRICE_ID_PRO,
+#   STRIPE_PRICE_ID_TEAM - optional; unset means /billing/plans and /billing/me
+#                        still work (quota enforcement needs no Stripe), but
+#                        /billing/checkout and /billing/portal return a clear
+#                        501 instead of crashing. See README "Billing".
+#   FRONTEND_URL       - your Vercel frontend URL; used for Stripe Checkout's
+#                        success/cancel redirect targets. Defaults to
+#                        http://localhost:3000, which is wrong for production.
 #
 # Note: written and reasoned through carefully, but never actually deployed
 # from this session -- the sandbox it was built in has no network path to
@@ -62,4 +72,14 @@ services:
       - key: CORS_ORIGINS
         sync: false
       - key: REDIS_URL
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_ID_PRO
+        sync: false
+      - key: STRIPE_PRICE_ID_TEAM
+        sync: false
+      - key: FRONTEND_URL
         sync: false

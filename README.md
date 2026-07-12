@@ -169,7 +169,9 @@ a while, which is expected, not a hang.
   ingest either failed on boot (check the Render deploy log for the
   `Upserted 57 clauses` line) or `QDRANT_URL`/`QDRANT_API_KEY` are wrong.
   Re-run manually via a Render shell: `python scripts/ingest_regulations.py
-  --regulations-dir /regulations`.
+  --regulations-dir /regulations`, or add `QDRANT_URL`/`QDRANT_API_KEY` as
+  repo secrets so [`.github/workflows/reingest-corpus.yml`](./.github/workflows/reingest-corpus.yml)
+  re-syncs it weekly without a manual shell each time.
 
 **Honesty check on this guide:** every step above matches Render/Vercel/Qdrant
 Cloud's documented flows and was reasoned through carefully, but couldn't be
@@ -180,7 +182,7 @@ executed end-to-end from this session — its egress proxy is allowlist-based
 Dockerfile/entrypoint are syntactically valid, `render.yaml`/`vercel.json`
 parse as valid YAML/JSON, and the `QDRANT_API_KEY` plumbing through
 `build_qdrant_client`/`retrieve_clauses` is covered by the existing test
-suite (25 passing). If you hit an error not covered above, it's genuinely
+suite (56 passing). If you hit an error not covered above, it's genuinely
 new information about a step this session couldn't verify — worth reporting
 back so the guide can be corrected.
 
@@ -230,15 +232,18 @@ backend/
     llm.py                     # Anthropic Messages API wrapper
     agents/                    # query / comps / valuation / compliance / memo nodes + graph.py
     rag/retrieval.py           # Qdrant retrieval for the Compliance Agent
-    routers/                   # deals, comps, market, ws
-    services/                  # comps_service, pipeline_runner, pdf, streaming
+    routers/                   # auth, billing, deals, comps, market, ws
+    services/                  # comps_service, pipeline_runner, pdf, streaming, billing_service
   scripts/
     generate_dataset.py        # synthetic demo dataset generator
     seed_db.py                 # loads seed_data/*.csv into Postgres
     map_dld_columns.py         # real-DLD-data adapter (alternative transactions path)
     ingest_regulations.py      # chunks + embeds regulations/*.md into Qdrant
+    purge_old_deal_queries.py  # PII retention enforcement (see "Data retention")
+    migrate_billing_columns.py # one-off ALTER TABLE for pre-billing Postgres databases
+    run_evals.py                # comps relevance / valuation accuracy / citation guardrail (see "Evals")
   seed_data/                   # committed synthetic CSVs (demo-scale)
-  tests/                       # 25 tests: agents, API, dataset, RAG ingestion, DLD adapter
+  tests/                       # 56 tests: agents, API, auth, billing, evals, dataset, RAG ingestion, DLD adapter
 data/                          # place a downloaded DLD/Kaggle CSV here (gitignored)
 regulations/                   # 12 synthetic RERA/DLD-style regulatory docs (Section 6)
 frontend/
@@ -256,16 +261,30 @@ not Hugging Face, Kaggle, Docker Hub, or arbitrary tile servers) and **no
 what's implemented-but-unexercised:
 
 **Verified for real, end-to-end, in this environment:**
-- Backend: 42 tests pass (`cd backend && pytest tests/ -v`), covering every
+- Backend: 56 tests pass (`cd backend && pytest tests/ -v`), covering every
   agent node, the full LangGraph pipeline (both the `comps_search`
   short-circuit and the `full_memo` path), the compliance citation-validation
   guardrail (including a hallucinated-citation rejection test), all 8 API
   endpoints, the WebSocket stream, PDF export, register/login/JWT auth, that
   a second account genuinely can't read a deal it doesn't own, rate limiting
   (drove a client past 10/min and confirmed a real 429, not just that the
-  decorator is present), and the PII purge script (dry-run vs. real delete,
+  decorator is present), the PII purge script (dry-run vs. real delete,
   correct retention-window boundary, audit_log rows cleaned up alongside
-  their parent).
+  their parent), and billing (monthly quota enforcement blocking a Starter
+  account's 6th full-pipeline query with a real 402, Stripe checkout/webhook
+  wiring against a monkeypatched Stripe SDK, and a webhook signature-rejection
+  test).
+- Billing against the live stack, not just pytest: registered a real account
+  through the actual `/billing` page, confirmed `0 / 5 full-pipeline queries
+  this month` rendered from a real `/billing/me` call, clicked "Upgrade to
+  Pro," and watched the frontend surface Stripe's real "not configured" 501
+  as a clean on-page error — this is also how the billing-column schema-drift
+  gap got caught and fixed (see `migrate_billing_columns.py` below) before it
+  could repeat the `owner_id` incident.
+- The eval suite (`python scripts/run_evals.py`) against the real seeded
+  dataset: it's what caught the fixed +/-7% fallback-valuation band
+  under-covering real held-out sale prices (4.4% band coverage) before this
+  session ended, not after — see "Evals" below for the fix and the numbers.
 - The Redis-backed WS pub/sub against a **real local Redis instance**, not a
   mock: a genuine publish → multi-subscriber fan-out round-trip, plus the
   full FastAPI app (real Postgres, real auth, real deal pipeline) streaming
@@ -350,6 +369,84 @@ flagged in the MVP roadmap, not something to leave undocumented.
   what a given retention window would delete without deleting anything.
 - Out of scope here: account deletion / "right to be forgotten" for the
   `users` table itself is a related but separate feature, not implemented.
+
+## Billing
+
+Phase B ("paid launch") of the MVP roadmap. Four tiers — Starter (free, 5
+full-pipeline queries/mo), Pro (AED 299/mo, 50/mo), Team (AED 999/mo,
+unmetered), Enterprise (custom, contact-sales only) — see
+[`backend/app/services/billing_service.py`](./backend/app/services/billing_service.py)
+for the canonical definitions. `/comps` search stays unmetered on every tier;
+only `/deals/query` (the full 5-agent pipeline) is quota-gated, since that's
+the endpoint that actually spends Anthropic budget per call.
+
+- **Enable it:** set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+  `STRIPE_PRICE_ID_PRO`, and `STRIPE_PRICE_ID_TEAM` (from your Stripe
+  dashboard — Team's "per 5 seats" pricing-table language isn't modeled as
+  seats here, it's a flat per-account price). Without these, `/billing/plans`
+  and `/billing/me` still work (quota enforcement doesn't need Stripe at
+  all), but `/billing/checkout` and `/billing/portal` return a clear `501`
+  instead of crashing.
+- **Never verified against a real Stripe account** — this sandbox has no
+  network path to `api.stripe.com`. `backend/tests/test_billing.py` covers
+  the checkout/webhook/quota logic against a monkeypatched `stripe` SDK; the
+  live `/billing` page was exercised end-to-end in a real browser against the
+  real backend (register → see quota → click upgrade → see Stripe's
+  "not configured" 501 surface as a clean UI error), which is as far as this
+  environment can verify it.
+- **Existing deployments:** `users.tier`/`stripe_customer_id`/etc. are new
+  columns; like the `owner_id` incident earlier in this project,
+  `create_all()` won't add them to an already-deployed `users` table. Run
+  `python scripts/migrate_billing_columns.py` once against any Postgres
+  database that predates this change (idempotent, safe to re-run) — this
+  session used it for real against its own sandbox Postgres before manually
+  verifying `/billing` in the browser, which is exactly the schema-drift
+  category the earlier incident should have made routine to check for.
+
+## Evals
+
+Phase B's "eval pipeline, not manual spot-checks" item. Turns the three
+metrics the roadmap already names into a thresholded, scheduled check:
+[`backend/scripts/run_evals.py`](./backend/scripts/run_evals.py), run weekly
+by [`.github/workflows/evals.yml`](./.github/workflows/evals.yml) (and on
+every push/PR touching an agent).
+
+1. **Comps relevance** — every comp a scenario's SQL+rerank pipeline returns
+   must actually match that scenario's filters (hard 100% invariant), and
+   most scenarios should return at least one comp.
+2. **Valuation accuracy** — real transactions held out of their own comp set;
+   does the deterministic fallback valuation band (what the Valuation Agent
+   uses without an LLM) actually bracket the real sale price.
+3. **Citation guardrail** — a battery of adversarial (retrieved clauses, fake
+   LLM response) pairs against the Compliance Agent's citation-validation
+   guardrail; every response citing an unretrieved `clause_id` must be
+   rejected (hard 100% invariant).
+
+The first two metrics need no network access or secrets — they run against
+the seeded synthetic dataset already committed to this repo. A fourth,
+best-effort check tries the real retrieval path (embeds the regulatory corpus
+into an in-memory Qdrant collection) to report retrieval coverage; it needs
+the `sentence-transformers` model to be downloadable, so it degrades to
+"skipped" rather than failing the run when it isn't (true in this sandbox;
+usually not true on a GitHub Actions runner).
+
+**A real bug this eval caught before it shipped:** the original fallback
+valuation used a fixed median ± 7% band. Run against this repo's own
+synthetic dataset, that band covered the real held-out sale price only
+**4.4%** of the time (MAPE 43.7%) — the dataset has much wider intra-scenario
+price variance than a flat percentage assumes. Fixed by switching to a
+P25–P75 percentile band (with a small IQR pad, widening to ±15% around the
+median for scenarios with fewer than 4 comps); band coverage on the same
+dataset is now **66.7%**. Run `python scripts/run_evals.py` to see current
+numbers; thresholds and the reasoning behind them (why width_ratio gates the
+range instead of MAPE) are in the script's `THRESHOLDS` dict.
+
+**LLM observability:** LangGraph pipelines trace to LangSmith automatically
+when `LANGCHAIN_TRACING_V2=true`, `LANGCHAIN_API_KEY`, and `LANGCHAIN_PROJECT`
+are set — no code change needed, since `langsmith` is already a transitive
+dependency of `langgraph`. Not enabled/verified here (would need a LangSmith
+account this session can't provision), but it's the "or similar" the roadmap
+asks for, and it's a pure env-var flip when you have an account.
 
 ## Ethics & limitations
 

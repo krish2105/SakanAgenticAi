@@ -88,6 +88,14 @@ class User(Base):
     role = Column(String(20), default="Agent")  # Agent | Investor | Admin
     created_at = Column(DateTime, server_default=func.now())
 
+    # Billing (Phase B: paid launch -- see MVP roadmap). tier gates monthly
+    # full-pipeline query quota (billing_service.PLANS); the stripe_* columns
+    # are unset until the user completes a Stripe Checkout at least once.
+    tier = Column(String(20), nullable=False, default="starter")
+    stripe_customer_id = Column(String(255), nullable=True, index=True)
+    stripe_subscription_id = Column(String(255), nullable=True)
+    subscription_status = Column(String(30), nullable=True)  # active | canceled | past_due | ...
+
     deal_queries = relationship("DealQuery", back_populates="owner")
 
 

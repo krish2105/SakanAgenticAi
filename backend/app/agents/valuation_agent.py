@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import statistics
 
 from app.config import REASONING_MODEL
 from app.deal_state import DealState
@@ -23,9 +24,19 @@ The valuation_rationale MUST reference specific comp transaction_ids used.
 
 
 def _fallback_valuation(state: DealState) -> None:
-    """Deterministic comp-median fallback used when the LLM call fails or
+    """Deterministic comp-based fallback used when the LLM call fails or
     no comps are available -- keeps the pipeline usable without an API key
-    and gives the Valuation Agent a defined behavior on empty comp sets."""
+    and gives the Valuation Agent a defined behavior on empty comp sets.
+
+    Uses the comps' own P25-P75 spread (with a small pad) rather than a
+    fixed +/-7% band around the median. The eval suite's
+    valuation_band_coverage metric (scripts/run_evals.py) caught the fixed
+    band systematically missing the real held-out sale price: this
+    dataset -- and comp sets in general -- can have wide intra-scenario
+    price variance a flat percentage doesn't track. Falls back to a wider
+    fixed band when there are too few comps (<4) for a stable percentile
+    estimate.
+    """
     prices = [c["price"] for c in state.retrieved_comps if c.get("price") is not None]
     if not prices:
         state.valuation_low = None
@@ -35,11 +46,23 @@ def _fallback_valuation(state: DealState) -> None:
         return
 
     prices.sort()
-    median = prices[len(prices) // 2]
-    state.valuation_low = round(median * 0.93, 2)
-    state.valuation_high = round(median * 1.07, 2)
+    n = len(prices)
+
+    if n >= 4:
+        q1, q3 = statistics.quantiles(prices, n=4)[0], statistics.quantiles(prices, n=4)[2]
+        iqr = q3 - q1
+        low = max(0.0, q1 - 0.15 * iqr)
+        high = q3 + 0.15 * iqr
+        method_detail = f"P25-P75 of {n} comps +/-15% IQR pad (fallback heuristic, no LLM)"
+    else:
+        median = prices[n // 2]
+        low, high = median * 0.85, median * 1.15
+        method_detail = f"median of {n} comps, +/-15% band (fallback heuristic, no LLM, n<4)"
+
+    state.valuation_low = round(low, 2)
+    state.valuation_high = round(high, 2)
     ids = ", ".join(c["transaction_id"] for c in state.retrieved_comps[:6] if c.get("transaction_id"))
-    state.valuation_method = f"median of {len(prices)} comps, +/-7% band (fallback heuristic, no LLM)"
+    state.valuation_method = method_detail
     state.valuation_rationale = f"Median price across comps {ids}."
 
 

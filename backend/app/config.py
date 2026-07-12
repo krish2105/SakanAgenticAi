@@ -23,3 +23,13 @@ JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("JWT_ACCESS_TOKEN_EXPIRE_MI
 
 # Comma-separated list of allowed frontend origins, e.g. "https://sakan.vercel.app,http://localhost:3000".
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",") if o.strip()]
+
+# Billing (Phase B). All optional -- billing_service degrades to "Stripe not
+# configured" (501) responses rather than crashing the app when unset, same
+# fallback pattern as ANTHROPIC_API_KEY. FRONTEND_URL is where Stripe Checkout
+# redirects after success/cancel.
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET")
+STRIPE_PRICE_ID_PRO = os.environ.get("STRIPE_PRICE_ID_PRO")
+STRIPE_PRICE_ID_TEAM = os.environ.get("STRIPE_PRICE_ID_TEAM")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
