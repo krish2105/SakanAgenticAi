@@ -8,14 +8,15 @@ import logging
 from app.agents.graph import get_deal_pipeline
 from app.db import get_engine, get_session_factory
 from app.deal_state import DealState
-from app.models import AuditLog, Base, DealQuery
+from app.models import AuditLog, Base, DealQuery, User
 from app.streaming import publish_threadsafe
 
 log = logging.getLogger("sakan.pipeline")
 
 
 def ensure_tables() -> None:
-    Base.metadata.create_all(get_engine(), tables=[DealQuery.__table__, AuditLog.__table__])
+    # User first: DealQuery.owner_id is a foreign key into it.
+    Base.metadata.create_all(get_engine(), tables=[User.__table__, DealQuery.__table__, AuditLog.__table__])
 
 
 def _persist(query_id: int, state_dict: dict) -> None:
@@ -62,11 +63,11 @@ async def run_pipeline(query_id: int, raw_query: str) -> None:
     await asyncio.to_thread(_run_sync, query_id, raw_query, loop)
 
 
-def create_deal_query(raw_query: str) -> int:
+def create_deal_query(raw_query: str, owner_id: int) -> int:
     ensure_tables()
     session_factory = get_session_factory()
     with session_factory() as session:
-        row = DealQuery(raw_query=raw_query, query_type=None, deal_state=None, agent_trace=[])
+        row = DealQuery(owner_id=owner_id, raw_query=raw_query, query_type=None, deal_state=None, agent_trace=[])
         session.add(row)
         session.commit()
         session.refresh(row)
@@ -82,6 +83,7 @@ def get_deal_query(query_id: int) -> dict | None:
             return None
         return {
             "query_id": row.query_id,
+            "owner_id": row.owner_id,
             "raw_query": row.raw_query,
             "query_type": row.query_type,
             "deal_state": row.deal_state,

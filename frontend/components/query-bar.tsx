@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { submitDealQuery } from "@/lib/api";
+import { submitDealQuery, AuthRequiredError } from "@/lib/api";
+import { useAuth } from "@/components/auth-provider";
 
 const EXAMPLE_QUERIES = [
   "2BR Business Bay under AED 2M",
@@ -16,6 +17,7 @@ const EXAMPLE_QUERIES = [
 
 export function QueryBar() {
   const router = useRouter();
+  const { token, loading: authLoading } = useAuth();
   const [value, setValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,13 +25,23 @@ export function QueryBar() {
   async function handleSubmit(query: string) {
     const raw_query = query.trim();
     if (!raw_query || submitting) return;
+
+    if (!token) {
+      router.push(`/login?next=${encodeURIComponent("/")}`);
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     try {
-      const { query_id } = await submitDealQuery(raw_query);
+      const { query_id } = await submitDealQuery(raw_query, token);
       router.push(`/deals/${query_id}`);
-    } catch {
-      setError("Couldn't reach the Sakan AI backend. Is the FastAPI server running?");
+    } catch (err) {
+      if (err instanceof AuthRequiredError) {
+        router.push(`/login?next=${encodeURIComponent("/")}`);
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Couldn't reach the Sakan AI backend.");
       setSubmitting(false);
     }
   }
@@ -53,12 +65,17 @@ export function QueryBar() {
             aria-label="Deal query"
           />
         </div>
-        <Button type="submit" size="lg" disabled={submitting}>
-          {submitting ? "Running agents..." : "Ask Sakan"}
+        <Button type="submit" size="lg" disabled={submitting || authLoading}>
+          {submitting ? "Running agents..." : token ? "Ask Sakan" : "Sign in to ask Sakan"}
         </Button>
       </form>
 
       {error && <p className="mt-2 text-sm text-negative">{error}</p>}
+      {!authLoading && !token && (
+        <p className="mt-2 text-sm text-text-muted">
+          The Comps Explorer is open to everyone — sign in here for the full valuation + compliance + memo pipeline.
+        </p>
+      )}
 
       <div className="mt-3 flex flex-wrap gap-2">
         {EXAMPLE_QUERIES.map((q) => (

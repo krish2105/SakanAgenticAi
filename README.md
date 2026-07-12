@@ -22,7 +22,8 @@ docker compose up -d
 cd backend
 pip install -r requirements.txt
 export DATABASE_URL=postgresql+psycopg2://sakan:sakan@localhost:5432/sakan
-export ANTHROPIC_API_KEY=sk-ant-...        # required for live agent reasoning
+export JWT_SECRET_KEY=$(openssl rand -hex 32)   # required -- see Auth section below
+export ANTHROPIC_API_KEY=sk-ant-...             # optional, required for live agent reasoning
 python scripts/seed_db.py --seed-dir seed_data          # synthetic demo data
 python scripts/ingest_regulations.py --regulations-dir ../regulations \
   --qdrant-url http://localhost:6333
@@ -35,11 +36,30 @@ echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
 npm run dev
 ```
 
-Open http://localhost:3000. Without `ANTHROPIC_API_KEY` set, the pipeline
-still runs end-to-end — the Query Agent falls back to a default
-`comps_search` classification and the Valuation/Memo agents fall back to
-deterministic comp-median/state-assembled results (see "Status" below) — so
-you can exercise the full data path with zero API cost before wiring in a key.
+Open http://localhost:3000, create an account, and ask a deal question.
+Without `ANTHROPIC_API_KEY` set, the pipeline still runs end-to-end — the
+Query Agent falls back to a default `comps_search` classification and the
+Valuation/Memo agents fall back to deterministic comp-median/state-assembled
+results (see "Status" below) — so you can exercise the full data path with
+zero API cost before wiring in a key.
+
+## Auth
+
+Every deal-pipeline endpoint requires a signed-in account (see the MVP
+roadmap's Phase A: a `deal_queries` row readable by guessable integer ID was
+the first thing fixed once real users entered the picture). `/comps` and
+`/market/*` stay open with no login, matching a free-trial comps-search tier.
+
+- `POST /auth/register`, `POST /auth/login` return a JWT; send it as
+  `Authorization: Bearer <token>` on every `/deals/*` request.
+- The WS stream can't carry custom headers from a browser, so it takes the
+  token as a query param instead: `/ws/deals/{id}/stream?token=...`.
+- **`JWT_SECRET_KEY` is required in any environment real users touch.**
+  Without it the app falls back to a hardcoded dev-only value and prints a
+  warning on startup — every token it issues is forgeable by anyone who
+  reads `backend/app/config.py`. Generate a real one with `openssl rand -hex 32`.
+- `POST /deals/query` is rate-limited to 10 requests/minute per client (it's
+  the endpoint that spends Anthropic budget per call).
 
 ## Deploy to production (Render + Neon + Qdrant Cloud + Vercel)
 
@@ -236,11 +256,24 @@ not Hugging Face, Kaggle, Docker Hub, or arbitrary tile servers) and **no
 what's implemented-but-unexercised:
 
 **Verified for real, end-to-end, in this environment:**
-- Backend: 25 tests pass (`cd backend && pytest tests/ -v`), covering every
+- Backend: 37 tests pass (`cd backend && pytest tests/ -v`), covering every
   agent node, the full LangGraph pipeline (both the `comps_search`
   short-circuit and the `full_memo` path), the compliance citation-validation
   guardrail (including a hallucinated-citation rejection test), all 8 API
-  endpoints, the WebSocket stream, and PDF export.
+  endpoints, the WebSocket stream, PDF export, register/login/JWT auth, and
+  that a second account genuinely can't read a deal it doesn't own.
+- Real browser flow against the live stack: register → redirected home →
+  submit a query while unauthenticated (redirects to `/login`) → register →
+  land back on the original page → submit for real → watch the trace stream
+  over an authenticated WebSocket → sign out → confirm the deal's direct URL
+  now redirects to `/login` instead of leaking it. This is also how a real
+  schema-drift bug got caught: the live Postgres instance had a `deal_queries`
+  table from before `owner_id` existed, and `create_all()` doesn't alter
+  existing tables — surfaced as an opaque browser CORS error (unhandled 500s
+  don't carry CORS headers) before the real cause showed up in the server log.
+  Worth knowing: this repo has no migration tool (Alembic) wired up yet, so a
+  schema change like this needs a manual `ALTER TABLE`/table recreation
+  against any already-deployed database, not just a fresh one.
 - A **real local Postgres 16** server (not just SQLite) was started, seeded,
   and queried through the live FastAPI app — confirmed with `curl` and via
   the browser.

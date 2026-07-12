@@ -37,6 +37,12 @@ def _fake_compliance_json(system_prompt, user_content, model, max_tokens=1024):
     }
 
 
+def _register(client: TestClient, email: str, password: str = "correct-horse-1") -> dict:
+    res = client.post("/auth/register", json={"email": email, "password": password})
+    assert res.status_code == 201, res.text
+    return {"Authorization": f"Bearer {res.json()['access_token']}"}
+
+
 def test_health():
     with TestClient(app) as client:
         assert client.get("/health").json() == {"status": "ok"}
@@ -77,14 +83,16 @@ def test_deal_query_full_lifecycle(monkeypatch, seeded_sqlite_db):
     monkeypatch.setattr(compliance_agent_module, "complete_json", _fake_compliance_json)
 
     with TestClient(app) as client:
-        res = client.post("/deals/query", json={"raw_query": "full memo for a 2BR in Dubai Marina"})
+        headers = _register(client, "lifecycle@example.com")
+
+        res = client.post("/deals/query", json={"raw_query": "full memo for a 2BR in Dubai Marina"}, headers=headers)
         assert res.status_code == 202
         query_id = res.json()["query_id"]
         assert query_id.isdigit()
 
         deal = None
         for _ in range(50):
-            deal = client.get(f"/deals/{query_id}").json()
+            deal = client.get(f"/deals/{query_id}", headers=headers).json()
             if deal.get("memo_markdown"):
                 break
             time.sleep(0.1)
@@ -94,29 +102,46 @@ def test_deal_query_full_lifecycle(monkeypatch, seeded_sqlite_db):
         assert deal["memo_markdown"]
         assert deal["compliance_summary"] == "No issues found per ESCROW-1."
 
-        trace = client.get(f"/deals/{query_id}/trace").json()
+        trace = client.get(f"/deals/{query_id}/trace", headers=headers).json()
         done_agents = [t["agent"] for t in trace["agent_trace"] if t["status"] == "done"]
         assert done_agents == ["query", "comps", "valuation", "compliance", "memo"]
 
-        memo = client.get(f"/deals/{query_id}/memo").json()
+        memo = client.get(f"/deals/{query_id}/memo", headers=headers).json()
         assert memo["memo_markdown"] == deal["memo_markdown"]
 
-        pdf_res = client.get(f"/deals/{query_id}/memo", params={"format": "pdf"})
+        pdf_res = client.get(f"/deals/{query_id}/memo", params={"format": "pdf"}, headers=headers)
         assert pdf_res.status_code == 200
         assert pdf_res.headers["content-type"] == "application/pdf"
         assert pdf_res.content[:4] == b"%PDF"
 
+        # A different user must not be able to read this deal (guessable-ID leak closed).
+        other_headers = _register(client, "someone-else@example.com")
+        assert client.get(f"/deals/{query_id}", headers=other_headers).status_code == 404
+
 
 def test_deal_query_rejects_empty_query(seeded_sqlite_db):
     with TestClient(app) as client:
-        res = client.post("/deals/query", json={"raw_query": "   "})
+        headers = _register(client, "empty-query@example.com")
+        res = client.post("/deals/query", json={"raw_query": "   "}, headers=headers)
         assert res.status_code == 422
+
+
+def test_deal_query_requires_auth(seeded_sqlite_db):
+    with TestClient(app) as client:
+        res = client.post("/deals/query", json={"raw_query": "2BR Dubai Marina"})
+        assert res.status_code == 401
 
 
 def test_get_unknown_deal_is_404(seeded_sqlite_db):
     with TestClient(app) as client:
-        res = client.get("/deals/999999")
+        headers = _register(client, "unknown-deal@example.com")
+        res = client.get("/deals/999999", headers=headers)
         assert res.status_code == 404
+
+
+def test_get_deal_without_auth_is_401(seeded_sqlite_db):
+    with TestClient(app) as client:
+        assert client.get("/deals/1").status_code == 401
 
 
 def test_ws_stream_receives_state_and_complete(monkeypatch, seeded_sqlite_db):
@@ -125,10 +150,14 @@ def test_ws_stream_receives_state_and_complete(monkeypatch, seeded_sqlite_db):
     monkeypatch.setattr(compliance_agent_module, "complete_json", _fake_compliance_json)
 
     with TestClient(app) as client:
-        res = client.post("/deals/query", json={"raw_query": "full memo for JVC 1BR"})
+        res = client.post("/auth/register", json={"email": "ws-user@example.com", "password": "correct-horse-1"})
+        token = res.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        res = client.post("/deals/query", json={"raw_query": "full memo for JVC 1BR"}, headers=headers)
         query_id = res.json()["query_id"]
 
-        with client.websocket_connect(f"/ws/deals/{query_id}/stream") as ws:
+        with client.websocket_connect(f"/ws/deals/{query_id}/stream?token={token}") as ws:
             messages = []
             for _ in range(20):
                 msg = ws.receive_json()
@@ -138,3 +167,19 @@ def test_ws_stream_receives_state_and_complete(monkeypatch, seeded_sqlite_db):
 
         assert messages[-1]["type"] == "complete"
         assert messages[-1]["data"]["memo_markdown"]
+
+
+def test_ws_stream_without_token_is_rejected(seeded_sqlite_db):
+    with TestClient(app) as client:
+        headers = _register(client, "ws-no-token@example.com")
+        res = client.post("/deals/query", json={"raw_query": "2BR JVC"}, headers=headers)
+        query_id = res.json()["query_id"]
+
+        from starlette.websockets import WebSocketDisconnect
+
+        try:
+            with client.websocket_connect(f"/ws/deals/{query_id}/stream") as ws:
+                ws.receive_json()
+            assert False, "expected the connection to be rejected"
+        except WebSocketDisconnect as exc:
+            assert exc.code == 4401

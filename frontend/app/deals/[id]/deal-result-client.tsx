@@ -2,23 +2,58 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FileText } from "lucide-react";
 import { AgentTraceDrawer } from "@/components/agent-trace-drawer";
 import { CompsTable } from "@/components/comps-table";
 import { ValuationCard } from "@/components/valuation-card";
 import { ComplianceCard } from "@/components/compliance-card";
 import { Button } from "@/components/ui/button";
-import { dealStreamUrl } from "@/lib/api";
+import { useAuth } from "@/components/auth-provider";
+import { dealStreamUrl, fetchDeal, AuthRequiredError } from "@/lib/api";
 import type { DealState } from "@/lib/types";
 
-export function DealResultClient({ queryId, initialDeal }: { queryId: string; initialDeal: DealState }) {
-  const [deal, setDeal] = useState<DealState>(initialDeal);
+export function DealResultClient({ queryId }: { queryId: string }) {
+  const router = useRouter();
+  const { token, loading: authLoading } = useAuth();
+  const [deal, setDeal] = useState<DealState | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [connectionState, setConnectionState] = useState<"connecting" | "open" | "closed">("connecting");
   const socketRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!token) {
+      router.push(`/login?next=${encodeURIComponent(`/deals/${queryId}`)}`);
+      return;
+    }
+
     let cancelled = false;
-    const ws = new WebSocket(dealStreamUrl(queryId));
+    fetchDeal(queryId, token)
+      .then((initial) => {
+        if (cancelled) return;
+        if (!initial) {
+          setNotFound(true);
+          return;
+        }
+        setDeal({
+          ...initial,
+          query_id: queryId,
+          retrieved_comps: initial.retrieved_comps ?? [],
+          retrieved_clauses: initial.retrieved_clauses ?? [],
+          compliance_flags: initial.compliance_flags ?? [],
+          agent_trace: initial.agent_trace ?? [],
+        });
+      })
+      .catch((err) => {
+        if (err instanceof AuthRequiredError) {
+          router.push(`/login?next=${encodeURIComponent(`/deals/${queryId}`)}`);
+        } else {
+          setNotFound(true);
+        }
+      });
+
+    const ws = new WebSocket(dealStreamUrl(queryId, token));
     socketRef.current = ws;
 
     ws.onopen = () => !cancelled && setConnectionState("open");
@@ -40,7 +75,21 @@ export function DealResultClient({ queryId, initialDeal }: { queryId: string; in
       cancelled = true;
       ws.close();
     };
-  }, [queryId]);
+  }, [queryId, token, authLoading, router]);
+
+  if (authLoading || (!deal && !notFound)) {
+    return <div className="px-6 py-8 text-sm text-text-muted">Loading…</div>;
+  }
+
+  if (notFound || !deal) {
+    return (
+      <div className="px-6 py-8">
+        <p className="text-sm text-text-muted">
+          This deal doesn&apos;t exist, or doesn&apos;t belong to your account.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1">

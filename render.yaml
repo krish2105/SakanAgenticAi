@@ -13,12 +13,20 @@
 # couldn't be verified from the sandbox this was built in. Use Qdrant
 # Cloud's free tier (cloud.qdrant.io) instead.
 #
-# All four env vars below are marked sync: false, so Render prompts you to
-# fill them in on the sakan-backend service page rather than needing values
+# All env vars below are marked sync: false, so Render prompts you to fill
+# them in on the sakan-backend service page rather than needing values
 # committed here:
 #   DATABASE_URL       - your Neon/Supabase Postgres connection string
 #   QDRANT_URL         - your Qdrant Cloud cluster URL
 #   QDRANT_API_KEY     - your Qdrant Cloud API key
+#   JWT_SECRET_KEY     - REQUIRED, not optional -- a long random string (e.g.
+#                        `openssl rand -hex 32`). Without it the app falls
+#                        back to a hardcoded dev-only secret and every
+#                        issued login token is forgeable by anyone who reads
+#                        this repo's source.
+#   CORS_ORIGINS       - your Vercel frontend URL, e.g.
+#                        https://sakan-agentic-ai.vercel.app (comma-separate
+#                        multiple origins if needed)
 #   ANTHROPIC_API_KEY  - optional; every agent has a deterministic fallback
 #
 # Note: written and reasoned through carefully, but never actually deployed
@@ -42,4 +50,8 @@ services:
       - key: QDRANT_URL
         sync: false
       - key: QDRANT_API_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: CORS_ORIGINS
         sync: false

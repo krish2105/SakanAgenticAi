@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { AuthStatus } from "@/components/auth-status";
 import { TransactionTicker } from "@/components/transaction-ticker";
 import type { Tick } from "@/lib/types";
 
@@ -15,7 +16,10 @@ export function SiteHeader({ ticks }: { ticks: Tick[] }) {
             deal intelligence terminal
           </span>
         </Link>
-        <ThemeToggle />
+        <div className="flex items-center gap-3">
+          <AuthStatus />
+          <ThemeToggle />
+        </div>
       </header>
       <TransactionTicker ticks={ticks} />
     </div>

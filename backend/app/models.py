@@ -74,15 +74,35 @@ class OffPlanProject(Base):
     percent_sold = Column(Numeric(5, 2))
 
 
+class User(Base):
+    """Extension beyond ARCHITECTURE.md Section 8's original DDL -- added for
+    Phase A auth (see the MVP roadmap: deal endpoints must not be publicly
+    readable by guessable query_id)."""
+
+    __tablename__ = "users"
+
+    user_id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    full_name = Column(String(255))
+    role = Column(String(20), default="Agent")  # Agent | Investor | Admin
+    created_at = Column(DateTime, server_default=func.now())
+
+    deal_queries = relationship("DealQuery", back_populates="owner")
+
+
 class DealQuery(Base):
     __tablename__ = "deal_queries"
 
     query_id = Column(Integer, primary_key=True, autoincrement=True)
+    owner_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
     raw_query = Column(Text)
     query_type = Column(String(20))
     deal_state = Column(JSONType)
     agent_trace = Column(JSONType)
     created_at = Column(DateTime, server_default=func.now())
+
+    owner = relationship("User", back_populates="deal_queries")
 
 
 class AuditLog(Base):
