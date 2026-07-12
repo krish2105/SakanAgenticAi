@@ -1,0 +1,50 @@
+name: Purge expired deal queries
+
+# Runs backend/scripts/purge_old_deal_queries.py on a schedule so the PII
+# retention policy in README "Data retention" is actually enforced, not just
+# documented. Requires a DATABASE_URL repo secret pointing at the production
+# database -- this workflow does nothing useful until that's configured.
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # daily, off the hour to avoid the top-of-hour thundering herd
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report what would be deleted without deleting anything"
+        type: boolean
+        default: false
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run purge
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PII_RETENTION_DAYS: ${{ vars.PII_RETENTION_DAYS || '180' }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::warning::DATABASE_URL secret is not set -- skipping. Add it in repo Settings > Secrets and variables > Actions to enable the retention policy."
+            exit 0
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            python scripts/purge_old_deal_queries.py --dry-run
+          else
+            python scripts/purge_old_deal_queries.py
+          fi

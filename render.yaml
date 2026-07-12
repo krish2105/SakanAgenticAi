@@ -28,6 +28,12 @@
 #                        https://sakan-agentic-ai.vercel.app (comma-separate
 #                        multiple origins if needed)
 #   ANTHROPIC_API_KEY  - optional; every agent has a deterministic fallback
+#   REDIS_URL          - optional; unset means the WS pub/sub falls back to an
+#                        in-memory registry, which is fine for a single Render
+#                        instance (the free plan's default) but stops
+#                        fanning out correctly the moment you scale beyond
+#                        one. A free Upstash Redis instance is the usual
+#                        pairing if you need it before then.
 #
 # Note: written and reasoned through carefully, but never actually deployed
 # from this session -- the sandbox it was built in has no network path to
@@ -54,4 +60,6 @@ services:
       - key: JWT_SECRET_KEY
         sync: false
       - key: CORS_ORIGINS
+        sync: false
+      - key: REDIS_URL
         sync: false

@@ -256,12 +256,22 @@ not Hugging Face, Kaggle, Docker Hub, or arbitrary tile servers) and **no
 what's implemented-but-unexercised:
 
 **Verified for real, end-to-end, in this environment:**
-- Backend: 37 tests pass (`cd backend && pytest tests/ -v`), covering every
+- Backend: 42 tests pass (`cd backend && pytest tests/ -v`), covering every
   agent node, the full LangGraph pipeline (both the `comps_search`
   short-circuit and the `full_memo` path), the compliance citation-validation
   guardrail (including a hallucinated-citation rejection test), all 8 API
-  endpoints, the WebSocket stream, PDF export, register/login/JWT auth, and
-  that a second account genuinely can't read a deal it doesn't own.
+  endpoints, the WebSocket stream, PDF export, register/login/JWT auth, that
+  a second account genuinely can't read a deal it doesn't own, rate limiting
+  (drove a client past 10/min and confirmed a real 429, not just that the
+  decorator is present), and the PII purge script (dry-run vs. real delete,
+  correct retention-window boundary, audit_log rows cleaned up alongside
+  their parent).
+- The Redis-backed WS pub/sub against a **real local Redis instance**, not a
+  mock: a genuine publish → multi-subscriber fan-out round-trip, plus the
+  full FastAPI app (real Postgres, real auth, real deal pipeline) streaming
+  a complete trace over WS with `REDIS_URL` pointed at that instance — the
+  actual code path that matters once the backend runs as more than one
+  process, not just an isolated unit test of the pub/sub module.
 - Real browser flow against the live stack: register → redirected home →
   submit a query while unauthenticated (redirects to `/login`) → register →
   land back on the original page → submit for real → watch the trace stream
@@ -317,6 +327,29 @@ call this out rather than claim untested things work):
 threshold in a couple of small-text contexts (badges, ticker). Flagging
 rather than silently deviating from the spec'd palette, since Section 0
 explicitly says implement the token system as given.
+
+## Data retention
+
+`deal_queries.raw_query` and `deal_state` can contain user-entered PII
+(buyer names, budgets, deal context) with no expiry by default — a real gap
+flagged in the MVP roadmap, not something to leave undocumented.
+
+- **Policy:** deal queries and their audit_log rows are retained for
+  **180 days** by default (`PII_RETENTION_DAYS` env var to change it), then
+  deleted. This is a starting point, not a researched compliance figure —
+  confirm the right window against UAE PDPL requirements specifically before
+  relying on it for real user data.
+- **Enforcement:** [`backend/scripts/purge_old_deal_queries.py`](./backend/scripts/purge_old_deal_queries.py)
+  does the deleting; [`.github/workflows/purge-pii.yml`](./.github/workflows/purge-pii.yml)
+  runs it daily via GitHub Actions' `schedule` trigger. That workflow does
+  nothing until you add a `DATABASE_URL` repo secret (Settings → Secrets and
+  variables → Actions) pointing at the production database — it logs a
+  warning and exits cleanly if that secret is missing, rather than failing
+  the workflow run.
+- Run `python scripts/purge_old_deal_queries.py --dry-run` locally to see
+  what a given retention window would delete without deleting anything.
+- Out of scope here: account deletion / "right to be forgotten" for the
+  `users` table itself is a related but separate feature, not implemented.
 
 ## Ethics & limitations
 

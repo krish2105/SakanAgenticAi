@@ -24,20 +24,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const stored = typeof window !== "undefined" ? localStorage.getItem(TOKEN_STORAGE_KEY) : null;
-    if (!stored) {
-      setLoading(false);
-      return;
-    }
-    fetchMe(stored).then((me) => {
-      if (me) {
+    async function restoreSession() {
+      const stored = typeof window !== "undefined" ? localStorage.getItem(TOKEN_STORAGE_KEY) : null;
+      const me = stored ? await fetchMe(stored) : null;
+      if (stored && me) {
         setToken(stored);
         setUser(me);
-      } else {
+      } else if (stored) {
         localStorage.removeItem(TOKEN_STORAGE_KEY);
       }
       setLoading(false);
-    });
+    }
+    restoreSession();
   }, []);
 
   const applyToken = useCallback(async (newToken: string) => {

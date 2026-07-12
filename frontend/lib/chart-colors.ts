@@ -28,6 +28,8 @@ const LIGHT = {
 export function useChartColors() {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  // SSR-hydration guard, same pattern as components/theme-toggle.tsx.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
   // Default to dark (the app's default theme) until mounted, to match SSR.
   return mounted && resolvedTheme === "light" ? LIGHT : DARK;

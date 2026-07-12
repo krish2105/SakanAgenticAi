@@ -24,15 +24,23 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    fetchComps({
-      community: filters.community || undefined,
-      type: filters.type || undefined,
-      bedrooms: filters.bedrooms || undefined,
-      limit: 100,
-    })
-      .then((data) => !cancelled && setComps(data))
-      .finally(() => !cancelled && setLoading(false));
+
+    async function loadComps() {
+      setLoading(true);
+      try {
+        const data = await fetchComps({
+          community: filters.community || undefined,
+          type: filters.type || undefined,
+          bedrooms: filters.bedrooms || undefined,
+          limit: 100,
+        });
+        if (!cancelled) setComps(data);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadComps();
     return () => {
       cancelled = true;
     };
