@@ -2,3 +2,7 @@ pandas>=2.2
 SQLAlchemy>=2.0
 psycopg2-binary>=2.9
 pytest>=8.0
+PyYAML>=6.0
+qdrant-client>=1.9
+sentence-transformers>=3.0
+numpy>=1.26

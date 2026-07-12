@@ -1,0 +1,81 @@
+building_id,name,community,developer_id,completion_status,total_units,avg_price_per_sqft
+BLD-001,Park Motor City 3,Motor City,DEV-11,Under Construction,111,957.03
+BLD-002,Burj Vista 1,Downtown Dubai,DEV-13,Off-Plan,143,2288.57
+BLD-003,Mohammed Bin Rashid City Boulevard 3,Mohammed Bin Rashid City,DEV-11,Completed,403,1809.52
+BLD-004,Amara Arabian Ranches,Arabian Ranches,DEV-12,Under Construction,215,1291.92
+BLD-005,The Downtown Dubai Views,Downtown Dubai,DEV-03,Completed,610,2196.28
+BLD-006,Skyline DAMAC Hills,DAMAC Hills,DEV-14,Completed,72,1266.45
+BLD-007,Dubai South Heights,Dubai South,DEV-05,Off-Plan,620,1063.14
+BLD-008,DAMAC Hills Waterside,DAMAC Hills,DEV-04,Completed,509,1076.08
+BLD-009,Golf Jumeirah Village Circle 3,Jumeirah Village Circle,DEV-04,Under Construction,478,1236.9
+BLD-010,Bay Central 2,Dubai South,DEV-06,Completed,133,1034.5
+BLD-011,Marina Gate 2,Motor City,DEV-02,Under Construction,472,1101.56
+BLD-012,Park Dubai South 4,Dubai South,DEV-07,Completed,606,1059.44
+BLD-013,Golf Business Bay 1,Business Bay,DEV-11,Under Construction,589,1794.74
+BLD-014,Executive Towers 1,Al Furjan,DEV-11,Completed,201,1064.1
+BLD-015,Golf Dubai Hills Estate 3,Dubai Hills Estate,DEV-15,Off-Plan,222,1694.42
+BLD-016,Dubai Marina Waterside,Dubai Marina,DEV-14,Under Construction,559,1894.04
+BLD-017,Skyline Jumeirah Village Circle,Jumeirah Village Circle,DEV-06,Completed,583,1242.59
+BLD-018,The Jumeirah Lake Towers Views,Jumeirah Lake Towers,DEV-06,Completed,411,1623.54
+BLD-019,Burj Vista 2,Motor City,DEV-13,Completed,620,1193.57
+BLD-020,The Dubai Marina Views,Dubai Marina,DEV-12,Off-Plan,585,1964.63
+BLD-021,The Jumeirah Village Circle Views,Jumeirah Village Circle,DEV-11,Completed,473,1255.2
+BLD-022,Skyline Dubai Silicon Oasis,Dubai Silicon Oasis,DEV-09,Under Construction,448,1033.91
+BLD-023,The Palm Jumeirah Views,Palm Jumeirah,DEV-06,Completed,270,2656.42
+BLD-024,Business Bay Gardens,Business Bay,DEV-10,Under Construction,47,1514.28
+BLD-025,Bay Central 1,Palm Jumeirah,DEV-01,Off-Plan,378,2661.37
+BLD-026,Downtown Dubai Waterside,Downtown Dubai,DEV-05,Completed,175,2485.93
+BLD-027,Park Dubai Silicon Oasis 4,Dubai Silicon Oasis,DEV-10,Completed,524,991.69
+BLD-028,Downtown Dubai Heights,Downtown Dubai,DEV-02,Completed,460,2338.54
+BLD-029,Dubai Hills Estate Waterside,Dubai Hills Estate,DEV-01,Completed,387,1815.24
+BLD-030,Bay Central 4,Dubai Marina,DEV-04,Completed,227,1745.35
+BLD-031,Amara Downtown Dubai,Downtown Dubai,DEV-14,Completed,603,2126.3
+BLD-032,Palm Jumeirah Boulevard 1,Palm Jumeirah,DEV-09,Off-Plan,282,2730.58
+BLD-033,Bay Central 3,Mohammed Bin Rashid City,DEV-08,Off-Plan,505,1845.49
+BLD-034,Skyline Dubai Hills Estate,Dubai Hills Estate,DEV-12,Completed,343,1574.8
+BLD-035,Golf Business Bay 3,Business Bay,DEV-10,Completed,528,1692.43
+BLD-036,Marina Gate 1,Motor City,DEV-09,Off-Plan,122,1168.48
+BLD-037,Dubai Marina Heights,Dubai Marina,DEV-10,Completed,292,1880.51
+BLD-038,Business Bay Heights,Business Bay,DEV-10,Under Construction,618,1700.65
+BLD-039,Bay Central 3,Dubai Silicon Oasis,DEV-05,Completed,488,997.59
+BLD-040,Park Dubai Hills Estate 1,Dubai Hills Estate,DEV-05,Under Construction,607,1608.49
+BLD-041,Amara Palm Jumeirah,Palm Jumeirah,DEV-02,Completed,149,3148.25
+BLD-042,Burj Vista 3,Jumeirah Village Circle,DEV-05,Completed,310,1128.99
+BLD-043,Amara Arabian Ranches,Arabian Ranches,DEV-15,Completed,355,1238.95
+BLD-044,Dubai Silicon Oasis Boulevard 1,Dubai Silicon Oasis,DEV-13,Off-Plan,255,963.47
+BLD-045,Executive Towers 4,Palm Jumeirah,DEV-02,Off-Plan,198,3281.18
+BLD-046,Marina Gate 4,Downtown Dubai,DEV-14,Completed,380,2519.87
+BLD-047,Dubai South Waterside,Dubai South,DEV-13,Completed,150,945.85
+BLD-048,The Business Bay Views,Business Bay,DEV-14,Completed,511,1629.23
+BLD-049,Motor City Boulevard 2,Motor City,DEV-13,Completed,237,1049.6
+BLD-050,Arabian Ranches Heights,Arabian Ranches,DEV-14,Completed,561,1249.9
+BLD-051,Executive Towers 3,Motor City,DEV-09,Completed,311,955.04
+BLD-052,Executive Towers 2,Jumeirah Lake Towers,DEV-07,Completed,486,1305.61
+BLD-053,Dubai Silicon Oasis Gardens,Dubai Silicon Oasis,DEV-13,Completed,111,1023.5
+BLD-054,Park Dubai Silicon Oasis 3,Dubai Silicon Oasis,DEV-06,Under Construction,167,971.94
+BLD-055,Burj Vista 4,Arabian Ranches,DEV-09,Completed,342,1298.25
+BLD-056,Downtown Dubai Waterside,Downtown Dubai,DEV-07,Under Construction,280,2456.86
+BLD-057,Bay Central 4,Downtown Dubai,DEV-13,Completed,295,2597.55
+BLD-058,Marina Gate 3,Dubai Marina,DEV-08,Off-Plan,493,1895.69
+BLD-059,Dubai Hills Estate Gardens,Dubai Hills Estate,DEV-15,Under Construction,601,1668.94
+BLD-060,Jumeirah Village Circle Boulevard 4,Jumeirah Village Circle,DEV-12,Completed,293,1220.96
+BLD-061,Skyline Arabian Ranches,Arabian Ranches,DEV-13,Under Construction,321,1262.46
+BLD-062,Bay Central 4,Dubai Hills Estate,DEV-05,Off-Plan,60,1838.4
+BLD-063,Al Furjan District 4,Al Furjan,DEV-10,Completed,400,1023.39
+BLD-064,Amara Dubai South,Dubai South,DEV-14,Completed,599,1044.97
+BLD-065,The Dubai Silicon Oasis Views,Dubai Silicon Oasis,DEV-04,Completed,537,816.53
+BLD-066,DAMAC Hills Waterside,DAMAC Hills,DEV-11,Under Construction,428,1115.0
+BLD-067,Burj Vista 3,Motor City,DEV-07,Under Construction,211,1104.05
+BLD-068,Dubai Hills Estate Heights,Dubai Hills Estate,DEV-12,Off-Plan,150,1723.71
+BLD-069,Park Dubai Silicon Oasis 2,Dubai Silicon Oasis,DEV-05,Completed,288,832.93
+BLD-070,Al Furjan Boulevard 1,Al Furjan,DEV-05,Under Construction,619,1150.44
+BLD-071,DAMAC Hills District 3,DAMAC Hills,DEV-09,Completed,389,1038.64
+BLD-072,The Dubai South Views,Dubai South,DEV-14,Completed,410,1005.95
+BLD-073,Golf Motor City 2,Motor City,DEV-08,Completed,574,1198.44
+BLD-074,Skyline Arabian Ranches,Arabian Ranches,DEV-10,Under Construction,388,1212.39
+BLD-075,Amara Jumeirah Lake Towers,Jumeirah Lake Towers,DEV-12,Under Construction,569,1648.67
+BLD-076,Golf Dubai Marina 4,Dubai Marina,DEV-04,Completed,286,1930.77
+BLD-077,The Palm Jumeirah Views,Palm Jumeirah,DEV-12,Under Construction,363,2696.68
+BLD-078,Golf Al Barari 2,Al Barari,DEV-13,Completed,535,1647.51
+BLD-079,Jumeirah Lake Towers Gardens,Jumeirah Lake Towers,DEV-13,Off-Plan,238,1412.39
+BLD-080,Burj Vista 1,DAMAC Hills,DEV-03,Under Construction,450,1176.38
