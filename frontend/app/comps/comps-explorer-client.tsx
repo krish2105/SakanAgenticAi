@@ -1,0 +1,92 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { CompsFilterBar, type CompsFilters } from "@/components/comps-filter-bar";
+import { fetchComps } from "@/lib/api";
+import { cn } from "@/lib/utils";
+import type { Comp } from "@/lib/types";
+
+const CompsMap = dynamic(() => import("@/components/comps-map").then((m) => m.CompsMap), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full w-full items-center justify-center text-sm text-text-muted">
+      Loading map…
+    </div>
+  ),
+});
+
+export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) {
+  const [filters, setFilters] = useState<CompsFilters>({ community: "", type: "", bedrooms: "" });
+  const [comps, setComps] = useState<Comp[]>(initialComps);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetchComps({
+      community: filters.community || undefined,
+      type: filters.type || undefined,
+      bedrooms: filters.bedrooms || undefined,
+      limit: 100,
+    })
+      .then((data) => !cancelled && setComps(data))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [filters]);
+
+  return (
+    <div className="flex h-full flex-col gap-4 px-6 py-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-semibold text-text-primary">Comps Explorer</h1>
+          <p className="text-sm text-text-muted">
+            {loading ? "Loading…" : `${comps.length} transactions`}
+          </p>
+        </div>
+        <CompsFilterBar filters={filters} onChange={setFilters} />
+      </div>
+
+      <div className="grid min-h-0 grid-cols-1 gap-4 lg:h-[calc(100vh-13rem)] lg:grid-cols-2">
+        <div className="h-[420px] min-h-0 overflow-hidden rounded-xl border border-border lg:h-full">
+          <CompsMap comps={comps} selectedId={selectedId} onSelect={setSelectedId} />
+        </div>
+
+        <div className="h-[420px] min-h-0 overflow-auto rounded-xl border border-border bg-surface lg:h-full">
+          <table className="w-full min-w-[520px] border-collapse text-sm">
+            <thead className="sticky top-0 bg-surface">
+              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-muted">
+                <th className="px-3 py-2 font-medium">Transaction</th>
+                <th className="px-3 py-2 font-medium">Building</th>
+                <th className="px-3 py-2 font-medium">Community</th>
+                <th className="px-3 py-2 font-medium">Beds</th>
+                <th className="px-3 py-2 font-medium">Price</th>
+              </tr>
+            </thead>
+            <tbody className="font-mono text-xs">
+              {comps.map((c) => (
+                <tr
+                  key={c.transaction_id}
+                  onClick={() => setSelectedId(c.transaction_id)}
+                  className={cn(
+                    "cursor-pointer border-b border-border last:border-0 hover:bg-border/30",
+                    selectedId === c.transaction_id && "bg-brass/10"
+                  )}
+                >
+                  <td className="px-3 py-2 text-brass">{c.transaction_id}</td>
+                  <td className="px-3 py-2 font-body text-text-primary">{c.building}</td>
+                  <td className="px-3 py-2 font-body text-text-muted">{c.community}</td>
+                  <td className="px-3 py-2">{c.bedrooms}</td>
+                  <td className="px-3 py-2 text-text-primary">AED {c.price?.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}

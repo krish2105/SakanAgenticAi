@@ -19,11 +19,11 @@ export async function fetchTicker(): Promise<Tick[]> {
 }
 
 export async function fetchMarketSnapshot(): Promise<{ community: string; avg_price_per_sqft: number }[]> {
-  return safeGet("/market/trends?summary=true", DEMO_SNAPSHOT);
+  return safeGet("/market/trends?view=summary", DEMO_SNAPSHOT);
 }
 
 export async function fetchMarketTrends(): Promise<MarketTrendPoint[]> {
-  return safeGet<MarketTrendPoint[]>("/market/trends", DEMO_TRENDS);
+  return safeGet<MarketTrendPoint[]>("/market/trends?view=timeseries", DEMO_TRENDS);
 }
 
 export async function fetchDeveloperLeaderboard(): Promise<DeveloperLeaderboardEntry[]> {
