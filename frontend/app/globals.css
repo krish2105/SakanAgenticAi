@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 243 245 248;
+  --surface: 255 255 255;
+  --surface-raised: 255 255 255;
+  --border: 216 222 232;
+  --text-primary: 16 24 40;
+  --text-muted: 91 100 120;
+  --accent-brass: 166 130 30;
+  --accent-brass-dim: 140 108 20;
+  --positive: 31 122 77;
+  --negative: 168 67 43;
+}
+
+.dark {
+  --bg: 11 18 32;
+  --surface: 18 27 46;
+  --surface-raised: 24 35 56;
+  --border: 37 50 74;
+  --text-primary: 237 239 243;
+  --text-muted: 138 148 172;
+  --accent-brass: 201 162 39;
+  --accent-brass-dim: 140 116 32;
+  --positive: 47 158 104;
+  --negative: 196 87 59;
+}
+
+* {
+  @apply border-border;
+}
+
+body {
+  @apply bg-bg text-text-primary font-body transition-colors duration-200;
+}
+
+::selection {
+  @apply bg-brass/30 text-text-primary;
+}
+
+.font-mono-nums {
+  font-variant-numeric: tabular-nums;
+}

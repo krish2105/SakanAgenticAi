@@ -8,3 +8,7 @@ node_modules/
 # Real DLD transaction extracts are large and not committed.
 /data/*.csv
 /data/*.zip
+
+# frontend
+frontend/node_modules/
+frontend/.next/
