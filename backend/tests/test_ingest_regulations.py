@@ -47,6 +47,36 @@ def test_parse_doc_extracts_frontmatter_and_clauses():
     ids = [c.clause_id for c in chunks]
     assert "RERA-F-1" in ids
     assert all(50 <= len(c.text.split()) <= 400 for c in chunks)
+    # Legal-review attribution (Phase D) -- every doc in this repo is
+    # honestly unreviewed today; see LEGAL_REVIEW.md.
+    assert all(c.review_status == "unreviewed" for c in chunks)
+    assert all(c.reviewed_by is None for c in chunks)
+
+
+def test_parse_doc_rejects_reviewed_status_without_reviewer():
+    import pytest
+    import tempfile
+
+    bad_doc = """---
+doc_id: TEST
+title: Test Doc
+doc_category: test
+applies_to: [both]
+review_status: reviewed
+---
+
+## TEST-1: A clause
+
+Some clause text that is long enough to pass the word-count style checks in this fixture file for testing purposes here.
+"""
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as f:
+        f.write(bad_doc)
+        path = Path(f.name)
+    try:
+        with pytest.raises(ValueError, match="reviewed_by"):
+            parse_doc(path)
+    finally:
+        path.unlink()
 
 
 def test_all_twelve_regulatory_docs_present_and_parseable():
@@ -86,3 +116,4 @@ def test_upsert_and_query_round_trip_with_in_memory_qdrant():
     assert results[0].payload["clause_id"] == "ESCROW-1"
     for r in results:
         assert set(r.payload.keys()) >= {"doc_id", "clause_id", "doc_category", "applies_to", "source_doc", "text"}
+        assert r.payload["review_status"] == "unreviewed"

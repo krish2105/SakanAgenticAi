@@ -29,6 +29,9 @@ export interface ComplianceClause {
   text: string;
   source_doc: string;
   similarity: number;
+  review_status?: "unreviewed" | "pending_review" | "reviewed";
+  reviewed_by?: string | null;
+  review_date?: string | null;
 }
 
 export interface AgentTraceEntry {

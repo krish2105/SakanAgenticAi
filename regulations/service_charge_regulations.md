@@ -3,6 +3,9 @@ doc_id: SERVICE
 title: Service Charge Regulations
 doc_category: service_charges
 applies_to: [ready, both]
+review_status: unreviewed
+reviewed_by: null
+review_date: null
 ---
 
 ## SERVICE-1: Basis for Service Charge Calculation

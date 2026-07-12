@@ -3,6 +3,9 @@ doc_id: OFFPLAN
 title: Off-Plan Sales Regulation
 doc_category: off_plan_sales
 applies_to: [off_plan]
+review_status: unreviewed
+reviewed_by: null
+review_date: null
 ---
 
 ## OFFPLAN-1: Eligibility to Market and Sell Off-Plan

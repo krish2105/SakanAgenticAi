@@ -3,6 +3,9 @@ doc_id: RERA-A
 title: Form A — Developer Project Registration
 doc_category: developer_registration
 applies_to: [off_plan]
+review_status: unreviewed
+reviewed_by: null
+review_date: null
 ---
 
 ## RERA-A-1: Purpose and Scope of Form A

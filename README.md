@@ -223,6 +223,7 @@ idempotently upserts buildings + transactions.
 
 ```
 ARCHITECTURE.md              # full master prompt / design doc (source of truth)
+LEGAL_REVIEW.md               # checklist for the not-yet-real legal-partner engagement (Phase D)
 docker-compose.yml            # Postgres + Qdrant for local dev
 backend/
   app/
@@ -233,17 +234,18 @@ backend/
     agents/                    # query / comps / valuation / compliance / memo nodes + graph.py
     rag/retrieval.py           # Qdrant retrieval for the Compliance Agent
     routers/                   # auth, billing, deals, comps, market, whatsapp, ws
-    services/                  # comps_service, pipeline_runner, pdf, streaming, billing_service, avm
+    services/                  # comps_service, pipeline_runner, pdf, streaming, billing_service, avm, data_source
   scripts/
     generate_dataset.py        # synthetic demo dataset generator
-    seed_db.py                 # loads seed_data/*.csv into Postgres
+    seed_db.py                 # loads seed_data/*.csv into Postgres (--provenance flag, see "Data partnership")
     map_dld_columns.py         # real-DLD-data adapter (alternative transactions path)
     ingest_regulations.py      # chunks + embeds regulations/*.md into Qdrant
     purge_old_deal_queries.py  # PII retention enforcement (see "Data retention")
     migrate_billing_columns.py # one-off ALTER TABLE for pre-billing Postgres databases
+    migrate_add_data_provenance.py # one-off ALTER TABLE for pre-provenance Postgres databases
     run_evals.py                # comps relevance / valuation accuracy / citation guardrail (see "Evals")
   seed_data/                   # committed synthetic CSVs (demo-scale)
-  tests/                       # 72 tests: agents, AVM, API, auth, billing, whatsapp, evals, dataset, RAG ingestion, DLD adapter
+  tests/                       # 85 tests: agents, AVM, data source, API, auth, billing, whatsapp, evals, dataset, RAG ingestion, DLD adapter
 data/                          # place a downloaded DLD/Kaggle CSV here (gitignored)
 regulations/                   # 12 synthetic RERA/DLD-style regulatory docs (Section 6)
 frontend/
@@ -262,7 +264,7 @@ not Hugging Face, Kaggle, Docker Hub, or arbitrary tile servers) and **no
 what's implemented-but-unexercised:
 
 **Verified for real, end-to-end, in this environment:**
-- Backend: 72 tests pass (`cd backend && pytest tests/ -v`), covering every
+- Backend: 85 tests pass (`cd backend && pytest tests/ -v`), covering every
   agent node, the full LangGraph pipeline (both the `comps_search`
   short-circuit and the `full_memo` path), the compliance citation-validation
   guardrail (including a hallucinated-citation rejection test), all 8 API
@@ -539,6 +541,36 @@ sandbox to build a scraper against, and a guessed selector breaking
 silently is worse than not extracting anything) — the floating button on
 those sites is an entry point, not an auto-fill, today.
 
+## Legal review (named legal partner)
+
+Phase D's "a named legal/compliance partner... a RERA-licensed firm's name
+attached to the corpus is the difference between 'AI guessed' and
+'reviewed by counsel.'" This is infrastructure for that engagement, not
+the engagement itself — no real firm has reviewed anything in this repo.
+[`LEGAL_REVIEW.md`](./LEGAL_REVIEW.md) is the checklist for what a real
+review looks like, clause by clause, and how it's recorded.
+
+- Every regulatory document's frontmatter now carries `review_status`
+  (`unreviewed` / `pending_review` / `reviewed`), `reviewed_by`, and
+  `review_date` — all 12 docs are honestly `unreviewed` today.
+  `ingest_regulations.py` refuses to mark a document `reviewed` without a
+  named `reviewed_by` (a hard parse error, not a silent default).
+- These fields ride the whole way to the Compliance Agent: every clause in
+  `DealState.retrieved_clauses` carries its own review status, and
+  `compliance_agent.UNREVIEWED_CORPUS_FLAG` gets attached to
+  `compliance_flags` automatically whenever *none* of the retrieved
+  clauses for that answer are reviewed — which, today, is always. The
+  Compliance Card in the UI renders this as an explicit banner ("has not
+  been reviewed by a licensed legal partner"), not a buried badge string.
+- The moment a real firm reviews even one document and its frontmatter is
+  updated + re-ingested, the flag clears automatically for answers
+  grounded in that document's clauses — no code change needed, this was
+  built to flip on its own once the underlying fact changes.
+- Covered by tests: `backend/tests/test_ingest_regulations.py` (frontmatter
+  parsing, the reviewed-without-reviewer guard) and
+  `backend/tests/test_agents.py` (`_corpus_review_flag`'s three cases —
+  none reviewed, one reviewed, empty retrieval).
+
 ## WhatsApp
 
 Phase C's "~70% of real Dubai property inquiries arrive over WhatsApp; a
@@ -573,6 +605,47 @@ payload shape.
   developer app to enable it; without them the GET handshake always 403s
   and the POST handler accepts unverified payloads (dev-only fallback,
   same posture as the Stripe webhook without `STRIPE_WEBHOOK_SECRET`).
+
+## Data partnership
+
+Phase D's "full DLD or portal data partnership... the exclusive or
+first-mover data relationship that's hard for a competitor to replicate in
+a weekend, unlike the agent orchestration." No such partnership exists —
+this is the technical scaffolding for when one does, per the MVP roadmap's
+risk #1 ("A valuation is only as defensible as its comps... this needs a
+real answer before anything else matters").
+[`backend/app/services/data_source.py`](./backend/app/services/data_source.py)
+defines a `DataSourceProvider` interface with three implementations:
+
+- `SyntheticDataSource` — this repo's default, wraps the committed seed CSVs.
+- `DldKaggleDataSource` — wraps `map_dld_columns.py`'s output: real DLD/Dubai
+  Pulse transaction data via a Kaggle mirror, which is real data but not a
+  licensed partnership.
+- `LicensedFeedDataSource` — a stub for an actual data partnership (DLD's
+  official channel, a portal like Bayut/Property Finder, or a brokerage
+  data-sharing agreement). Raises a clear error if selected without
+  `LICENSED_DATA_FEED_URL` configured, rather than silently returning
+  nothing or fabricating rows. **Never called against a real feed** — no
+  such feed exists, so its HTTP-call shape is covered by a monkeypatched
+  test, not a live integration.
+
+Every `transactions` row carries a `data_provenance` column
+(`synthetic` / `dld_kaggle` / `licensed_partner`) so any consumer can tell
+which kind of number it's looking at — set automatically by `seed_db.py`'s
+`--provenance` flag and hardcoded in `map_dld_columns.py`'s output.
+Existing databases need
+[`backend/scripts/migrate_add_data_provenance.py`](./backend/scripts/migrate_add_data_provenance.py)
+run once (idempotent; backfills existing rows as `synthetic`) — same
+schema-drift category as the earlier `owner_id` and billing-column
+incidents, and this time caught and fixed *before* it could repeat: run
+for real against this session's own sandbox Postgres (600 pre-existing
+rows correctly backfilled to `synthetic`, confirmed via `psql` and a live
+`/comps` query afterward), not just reasoned through.
+
+When a real partnership exists, swapping it in is: implement
+`LicensedFeedDataSource.fetch_transactions()` for the real API shape, set
+`DATA_SOURCE=licensed_partner` + the feed credentials, done — no changes
+to `comps_service.py`, the agents, or the API layer.
 
 ## Ethics & limitations
 

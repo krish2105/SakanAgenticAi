@@ -67,7 +67,7 @@ def coerce_off_plan_project(row: dict) -> dict:
     }
 
 
-def coerce_transaction(row: dict) -> dict:
+def coerce_transaction(row: dict, provenance: str = "synthetic") -> dict:
     return {
         "transaction_id": row["transaction_id"],
         "building_id": row["building_id"],
@@ -81,15 +81,11 @@ def coerce_transaction(row: dict) -> dict:
         "transaction_date": date.fromisoformat(row["transaction_date"]),
         "registration_type": row["registration_type"],
         "buyer_type": row["buyer_type"],
+        # CSVs produced by map_dld_columns.py already carry their own
+        # data_provenance column (tagged "dld_kaggle"); this default only
+        # applies to the plain generate_dataset.py seed CSVs, which don't.
+        "data_provenance": row.get("data_provenance") or provenance,
     }
-
-
-TABLE_PLAN = [
-    ("developers.csv", Developer, coerce_developer, "developer_id"),
-    ("buildings.csv", Building, coerce_building, "building_id"),
-    ("off_plan_projects.csv", OffPlanProject, coerce_off_plan_project, "project_id"),
-    ("transactions.csv", Transaction, coerce_transaction, "transaction_id"),
-]
 
 
 def upsert(session, model, rows: list[dict], pk_col: str) -> int:
@@ -106,7 +102,7 @@ def upsert(session, model, rows: list[dict], pk_col: str) -> int:
     return len(rows)
 
 
-def run(seed_dir: Path, database_url: str | None) -> dict[str, int]:
+def run(seed_dir: Path, database_url: str | None, provenance: str = "synthetic") -> dict[str, int]:
     engine = get_engine(database_url) if database_url else get_engine()
     Base.metadata.create_all(
         engine,
@@ -115,9 +111,16 @@ def run(seed_dir: Path, database_url: str | None) -> dict[str, int]:
 
     from sqlalchemy.orm import Session
 
+    table_plan = [
+        ("developers.csv", Developer, coerce_developer, "developer_id"),
+        ("buildings.csv", Building, coerce_building, "building_id"),
+        ("off_plan_projects.csv", OffPlanProject, coerce_off_plan_project, "project_id"),
+        ("transactions.csv", Transaction, lambda r: coerce_transaction(r, provenance), "transaction_id"),
+    ]
+
     counts: dict[str, int] = {}
     with Session(engine, future=True) as session:
-        for filename, model, coerce, pk_col in TABLE_PLAN:
+        for filename, model, coerce, pk_col in table_plan:
             csv_path = seed_dir / filename
             if not csv_path.exists():
                 raise SystemExit(f"Missing {csv_path}. Run generate_dataset.py first.")
@@ -132,9 +135,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--seed-dir", type=Path, default=Path("backend/seed_data"))
     parser.add_argument("--database-url", type=str, default=None)
+    parser.add_argument(
+        "--provenance",
+        type=str,
+        default="synthetic",
+        choices=["synthetic", "dld_kaggle", "licensed_partner"],
+        help="Tags every loaded transaction's data_provenance column (ignored for rows whose CSV already sets one, e.g. map_dld_columns.py's output).",
+    )
     args = parser.parse_args()
 
-    counts = run(args.seed_dir, args.database_url)
+    counts = run(args.seed_dir, args.database_url, args.provenance)
     for filename, n in counts.items():
         print(f"{filename}: {n} rows upserted")
 

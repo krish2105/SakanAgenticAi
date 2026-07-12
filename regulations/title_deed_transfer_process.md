@@ -3,6 +3,9 @@ doc_id: TITLE
 title: Title Deed Transfer Process
 doc_category: title_transfer
 applies_to: [ready, both]
+review_status: unreviewed
+reviewed_by: null
+review_date: null
 ---
 
 ## TITLE-1: Scope — Ready Properties vs. Completed Off-Plan

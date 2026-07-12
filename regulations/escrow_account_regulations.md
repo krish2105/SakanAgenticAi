@@ -3,6 +3,9 @@ doc_id: ESCROW
 title: Escrow Account Regulations for Off-Plan Sales
 doc_category: escrow
 applies_to: [off_plan]
+review_status: unreviewed
+reviewed_by: null
+review_date: null
 ---
 
 ## ESCROW-1: Mandatory Escrow for Off-Plan Sales

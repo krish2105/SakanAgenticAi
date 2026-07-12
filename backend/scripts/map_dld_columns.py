@@ -245,6 +245,12 @@ def clean_chunk(chunk: pd.DataFrame, colmap: dict[str, str], stats: LoadStats) -
     ]
 
     df["buyer_type"] = None  # not present at row level in the DLD open dataset
+    # Provenance (Phase D: "full DLD or portal data partnership"): this
+    # adapter reads a Kaggle mirror of DLD's own open dataset, which is
+    # real transaction data but not a licensed partnership feed -- tagged
+    # distinctly from both "synthetic" and a future "licensed_partner"
+    # source so a consumer can tell which kind of number it's looking at.
+    df["data_provenance"] = "dld_kaggle"
 
     return df[
         [
@@ -261,6 +267,7 @@ def clean_chunk(chunk: pd.DataFrame, colmap: dict[str, str], stats: LoadStats) -
             "transaction_date",
             "registration_type",
             "buyer_type",
+            "data_provenance",
         ]
     ]
 

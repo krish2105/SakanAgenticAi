@@ -3,6 +3,9 @@ doc_id: FOREIGN
 title: Foreign Ownership in Freehold Areas
 doc_category: foreign_ownership
 applies_to: [both]
+review_status: unreviewed
+reviewed_by: null
+review_date: null
 ---
 
 ## FOREIGN-1: Freehold vs. Leasehold Distinction

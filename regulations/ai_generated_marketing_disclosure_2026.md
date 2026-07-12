@@ -3,6 +3,9 @@ doc_id: AIDISC
 title: AI-Generated Marketing Disclosure Guideline (2026)
 doc_category: marketing_disclosure
 applies_to: [both]
+review_status: unreviewed
+reviewed_by: null
+review_date: null
 ---
 
 ## AIDISC-1: Scope of the Disclosure Requirement

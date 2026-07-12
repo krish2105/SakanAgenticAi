@@ -43,6 +43,14 @@ class Chunk:
     applies_to: list[str]
     source_doc: str
     text: str
+    # Legal-review attribution (Phase D: "a named legal/compliance partner").
+    # Every doc in this repo is synthetic and unreviewed -- these fields
+    # exist so a real engagement has somewhere to record itself per-clause
+    # (not just one blanket disclaimer), not because a review has happened.
+    # See LEGAL_REVIEW.md for what that engagement looks like.
+    review_status: str = "unreviewed"  # unreviewed | pending_review | reviewed
+    reviewed_by: str | None = None
+    review_date: str | None = None
 
 
 def parse_doc(path: Path) -> list[Chunk]:
@@ -57,6 +65,13 @@ def parse_doc(path: Path) -> list[Chunk]:
     doc_id = frontmatter["doc_id"]
     doc_category = frontmatter["doc_category"]
     applies_to = frontmatter.get("applies_to", ["both"])
+    review_status = frontmatter.get("review_status", "unreviewed")
+    reviewed_by = frontmatter.get("reviewed_by")
+    review_date = frontmatter.get("review_date")
+    if review_status not in ("unreviewed", "pending_review", "reviewed"):
+        raise ValueError(f"{path} has an invalid review_status: {review_status!r}")
+    if review_status == "reviewed" and not reviewed_by:
+        raise ValueError(f"{path} is marked reviewed but has no reviewed_by -- who reviewed it?")
 
     headings = list(CLAUSE_RE.finditer(body))
     if not headings:
@@ -77,6 +92,9 @@ def parse_doc(path: Path) -> list[Chunk]:
                 applies_to=applies_to,
                 source_doc=path.name,
                 text=text,
+                review_status=review_status,
+                reviewed_by=reviewed_by,
+                review_date=review_date,
             )
         )
     return chunks

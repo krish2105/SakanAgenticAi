@@ -3,6 +3,9 @@ doc_id: MORTGAGE
 title: Mortgage Registration Requirements
 doc_category: mortgage
 applies_to: [both]
+review_status: unreviewed
+reviewed_by: null
+review_date: null
 ---
 
 ## MORTGAGE-1: Registration as a Condition of Enforceability

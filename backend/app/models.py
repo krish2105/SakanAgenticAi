@@ -55,6 +55,11 @@ class Transaction(Base):
     transaction_date = Column(Date)
     registration_type = Column(String(20))
     buyer_type = Column(String(20))
+    # Phase D: "full DLD or portal data partnership." Distinguishes
+    # synthetic demo rows from a real Kaggle/Dubai-Pulse DLD mirror from a
+    # (currently nonexistent) licensed partner feed -- see
+    # app/services/data_source.py and README "Data partnership".
+    data_provenance = Column(String(20), nullable=False, default="synthetic")
 
     building = relationship("Building", back_populates="transactions")
 

@@ -3,6 +3,9 @@ doc_id: RERA-B
 title: Form B — Unit Reservation Agreement
 doc_category: unit_reservation
 applies_to: [off_plan]
+review_status: unreviewed
+reviewed_by: null
+review_date: null
 ---
 
 ## RERA-B-1: When Form B Is Required

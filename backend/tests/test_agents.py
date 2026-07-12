@@ -141,7 +141,9 @@ def test_compliance_agent_accepts_valid_citations(monkeypatch):
     state = DealState(query_id="q6", raw_query="check RERA compliance for this off-plan deal", project_id="PRJ-01")
     result = compliance_agent_module.compliance_agent_node(state)
 
-    assert result.compliance_flags == ["escrow_verification_required"]
+    # SAMPLE_CLAUSES carries no review_status -- unreviewed_regulatory_corpus
+    # rides along automatically (see compliance_agent._corpus_review_flag).
+    assert result.compliance_flags == ["escrow_verification_required", compliance_agent_module.UNREVIEWED_CORPUS_FLAG]
     assert "ESCROW-1" in result.compliance_summary
     assert result.agent_trace[-1]["detail"].startswith("verified on attempt 1")
 
@@ -172,7 +174,7 @@ def test_compliance_agent_guardrail_rejects_unverified_citation_and_falls_back(m
 
     assert call_count["n"] == 2  # retried once
     assert result.compliance_summary == compliance_agent_module.FALLBACK_SUMMARY
-    assert result.compliance_flags == ["citation_validation_failed"]
+    assert result.compliance_flags == ["citation_validation_failed", compliance_agent_module.UNREVIEWED_CORPUS_FLAG]
     assert "RERA-G-9" not in (result.compliance_summary or "")
 
 
@@ -184,6 +186,19 @@ def test_compliance_agent_no_retrieved_clauses_is_explicit():
 
     assert result.compliance_flags in (["insufficient_retrieved_evidence"], ["retrieval_unavailable"])
     assert result.compliance_summary == compliance_agent_module.FALLBACK_SUMMARY
+
+
+def test_corpus_review_flag_is_none_when_a_retrieved_clause_is_reviewed():
+    reviewed_clauses = [{**SAMPLE_CLAUSES[0], "review_status": "reviewed", "reviewed_by": "Example Legal LLP"}, SAMPLE_CLAUSES[1]]
+    assert compliance_agent_module._corpus_review_flag(reviewed_clauses) is None
+
+
+def test_corpus_review_flag_fires_when_nothing_is_reviewed():
+    assert compliance_agent_module._corpus_review_flag(SAMPLE_CLAUSES) == compliance_agent_module.UNREVIEWED_CORPUS_FLAG
+
+
+def test_corpus_review_flag_is_none_for_empty_retrieval():
+    assert compliance_agent_module._corpus_review_flag([]) is None
 
 
 def test_memo_agent_fallback_produces_traceable_markdown():

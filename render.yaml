@@ -52,6 +52,13 @@
 #                        unverified payloads (dev-only fallback -- set
 #                        WHATSAPP_APP_SECRET before pointing a real Meta
 #                        webhook at this). See README "WhatsApp".
+#   DATA_SOURCE,
+#   LICENSED_DATA_FEED_URL,
+#   LICENSED_DATA_FEED_API_KEY - optional; DATA_SOURCE defaults to
+#                        "synthetic". No licensed data partnership exists
+#                        yet, so LicensedFeedDataSource raises a clear
+#                        error if selected without a real feed configured.
+#                        See README "Data partnership".
 #
 # Note: written and reasoned through carefully, but never actually deployed
 # from this session -- the sandbox it was built in has no network path to
@@ -98,4 +105,10 @@ services:
       - key: WHATSAPP_ACCESS_TOKEN
         sync: false
       - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: DATA_SOURCE
+        sync: false
+      - key: LICENSED_DATA_FEED_URL
+        sync: false
+      - key: LICENSED_DATA_FEED_API_KEY
         sync: false

@@ -3,6 +3,9 @@ doc_id: RDC
 title: Rental Dispute Center Guidelines
 doc_category: dispute_resolution
 applies_to: [ready, both]
+review_status: unreviewed
+reviewed_by: null
+review_date: null
 ---
 
 ## RDC-1: Jurisdiction

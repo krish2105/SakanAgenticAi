@@ -3,6 +3,9 @@ doc_id: OQOOD
 title: Oqood Pre-Registration Process
 doc_category: pre_registration
 applies_to: [off_plan]
+review_status: unreviewed
+reviewed_by: null
+review_date: null
 ---
 
 ## OQOOD-1: Purpose of Oqood Pre-Registration

@@ -3,6 +3,9 @@ doc_id: RERA-F
 title: Form F — Sale and Purchase Agreement (Off-Plan)
 doc_category: sale_purchase_agreement
 applies_to: [off_plan]
+review_status: unreviewed
+reviewed_by: null
+review_date: null
 ---
 
 ## RERA-F-1: Nature and Precedence of Form F

@@ -54,8 +54,23 @@ def test_seed_db_loads_generated_csvs(tmp_path):
         assert session.scalar(select(func.count()).select_from(Building)) == 80
         assert session.scalar(select(func.count()).select_from(OffPlanProject)) == 20
         assert session.scalar(select(func.count()).select_from(Transaction)) == 600
+        # Default provenance for a plain seed_db.py load (Phase D).
+        assert session.scalar(select(func.count()).select_from(Transaction).where(Transaction.data_provenance == "synthetic")) == 600
 
     # Re-seeding is idempotent (ON CONFLICT DO NOTHING).
     seed_run(seed_dir, database_url)
     with Session(engine) as session:
         assert session.scalar(select(func.count()).select_from(Transaction)) == 600
+
+
+def test_seed_db_tags_provenance_via_flag(tmp_path):
+    seed_dir = Path(__file__).resolve().parents[1] / "seed_data"
+    db_path = tmp_path / "seed_provenance_test.db"
+    database_url = f"sqlite:///{db_path}"
+
+    seed_run(seed_dir, database_url, provenance="dld_kaggle")
+
+    engine = create_engine(database_url, future=True)
+    with Session(engine) as session:
+        n = session.scalar(select(func.count()).select_from(Transaction).where(Transaction.data_provenance == "dld_kaggle"))
+        assert n == 600

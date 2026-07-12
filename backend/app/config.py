@@ -42,3 +42,11 @@ WHATSAPP_VERIFY_TOKEN = os.environ.get("WHATSAPP_VERIFY_TOKEN")  # webhook subsc
 WHATSAPP_APP_SECRET = os.environ.get("WHATSAPP_APP_SECRET")  # verifies X-Hub-Signature-256
 WHATSAPP_ACCESS_TOKEN = os.environ.get("WHATSAPP_ACCESS_TOKEN")  # Graph API bearer token
 WHATSAPP_PHONE_NUMBER_ID = os.environ.get("WHATSAPP_PHONE_NUMBER_ID")  # the sending number's id
+
+# Data source (Phase D). DATA_SOURCE selects which app/services/data_source.py
+# provider is active; LICENSED_DATA_FEED_* are for a real data partnership,
+# which doesn't exist yet -- see app/services/data_source.py and README
+# "Data partnership".
+DATA_SOURCE = os.environ.get("DATA_SOURCE", "synthetic")
+LICENSED_DATA_FEED_URL = os.environ.get("LICENSED_DATA_FEED_URL")
+LICENSED_DATA_FEED_API_KEY = os.environ.get("LICENSED_DATA_FEED_API_KEY")

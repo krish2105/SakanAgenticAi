@@ -35,6 +35,9 @@ def test_loads_into_database(tmp_path):
 
         assert len(transactions) == 4
         assert {t.property_type for t in transactions} == {"Apartment", "Villa", "Townhouse"}
+        # Phase D provenance tagging -- real DLD data via a Kaggle mirror,
+        # not synthetic and not a licensed partnership feed.
+        assert all(t.data_provenance == "dld_kaggle" for t in transactions)
 
         apartment = next(t for t in transactions if t.community == "Business Bay")
         assert apartment.property_type == "Apartment"

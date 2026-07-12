@@ -26,7 +26,15 @@ def retrieve_clauses(
     client=None,
     embedder=None,
 ) -> list[dict]:
-    """Returns [{clause_id, text, source_doc, similarity}], per DealState.retrieved_clauses."""
+    """Returns [{clause_id, text, source_doc, doc_category, similarity,
+    review_status, reviewed_by, review_date}], per DealState.retrieved_clauses.
+
+    The review_* fields (Phase D: "a named legal/compliance partner") ride
+    along from the corpus's own frontmatter (see ingest_regulations.py) so
+    a retrieved clause can honestly say whether counsel has actually
+    looked at it, per-clause, rather than one blanket disclaimer covering
+    a corpus that's entirely unreviewed today.
+    """
     client = client or build_qdrant_client(QDRANT_URL, api_key=QDRANT_API_KEY)
     embedder = embedder or get_embedder()
 
@@ -42,6 +50,9 @@ def retrieve_clauses(
             "source_doc": r.payload["source_doc"],
             "doc_category": r.payload.get("doc_category"),
             "similarity": round(float(r.score), 4),
+            "review_status": r.payload.get("review_status", "unreviewed"),
+            "reviewed_by": r.payload.get("reviewed_by"),
+            "review_date": r.payload.get("review_date"),
         }
         for r in results
     ]

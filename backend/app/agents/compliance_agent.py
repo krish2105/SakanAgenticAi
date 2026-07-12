@@ -33,6 +33,21 @@ cited_clause_ids MUST contain only clause_ids that were actually retrieved below
 
 FALLBACK_SUMMARY = "unable to verify — recommend manual RERA check"
 
+# Phase D: "a named legal/compliance partner." Every clause in this repo's
+# corpus is synthetic and unreviewed (see regulations/*.md frontmatter,
+# LEGAL_REVIEW.md) -- this flag makes that fact travel with
+# every compliance answer instead of living only in a README someone has
+# to go read.
+UNREVIEWED_CORPUS_FLAG = "unreviewed_regulatory_corpus"
+
+
+def _corpus_review_flag(retrieved_clauses: list[dict]) -> str | None:
+    if not retrieved_clauses:
+        return None
+    if any(c.get("review_status") == "reviewed" for c in retrieved_clauses):
+        return None
+    return UNREVIEWED_CORPUS_FLAG
+
 
 def _attempt_llm_compliance(deal_context: str, retrieved_clauses: list[dict]) -> dict:
     user_content = (
@@ -81,18 +96,26 @@ def compliance_agent_node(state: DealState) -> DealState:
         f"raw_query={state.raw_query!r}"
     )
 
+    review_flag = _corpus_review_flag(retrieved)
+
     last_error: Exception | None = None
     for attempt_num in (1, 2):
         try:
             result = _attempt_llm_compliance(deal_context, retrieved)
-            state.compliance_flags = result.get("compliance_flags", [])
+            flags = list(result.get("compliance_flags", []))
+            if review_flag and review_flag not in flags:
+                flags.append(review_flag)
+            state.compliance_flags = flags
             state.compliance_summary = result.get("compliance_summary")
             state.trace("compliance", "done", detail=f"verified on attempt {attempt_num}")
             return state
         except Exception as exc:  # noqa: BLE001
             last_error = exc
 
-    state.compliance_flags = ["citation_validation_failed"]
+    flags = ["citation_validation_failed"]
+    if review_flag:
+        flags.append(review_flag)
+    state.compliance_flags = flags
     state.compliance_summary = FALLBACK_SUMMARY
     state.trace("compliance", "done", detail=f"guardrail fallback after 2 attempts: {last_error}")
     return state
