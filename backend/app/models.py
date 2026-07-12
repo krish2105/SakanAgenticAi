@@ -1,11 +1,16 @@
 """SQLAlchemy ORM models mirroring the Postgres schema in ARCHITECTURE.md Section 8."""
 from sqlalchemy import (
-    Column, String, Integer, Numeric, Date, DateTime, ForeignKey, Text, func
+    JSON, Column, String, Integer, Numeric, Date, DateTime, ForeignKey, Text, func
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
+
+# JSONB on Postgres (production), plain JSON elsewhere (e.g. SQLite in tests) --
+# JSONB has no SQLite compiler support, and tests run against SQLite so the
+# suite doesn't require a live Postgres instance.
+JSONType = JSON().with_variant(JSONB, "postgresql")
 
 
 class Developer(Base):
@@ -75,8 +80,8 @@ class DealQuery(Base):
     query_id = Column(Integer, primary_key=True, autoincrement=True)
     raw_query = Column(Text)
     query_type = Column(String(20))
-    deal_state = Column(JSONB)
-    agent_trace = Column(JSONB)
+    deal_state = Column(JSONType)
+    agent_trace = Column(JSONType)
     created_at = Column(DateTime, server_default=func.now())
 
 
@@ -86,5 +91,5 @@ class AuditLog(Base):
     log_id = Column(Integer, primary_key=True, autoincrement=True)
     query_id = Column(Integer, ForeignKey("deal_queries.query_id"))
     event_type = Column(String(50))
-    event_payload = Column(JSONB)
+    event_payload = Column(JSONType)
     timestamp = Column(DateTime, server_default=func.now())
