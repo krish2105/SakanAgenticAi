@@ -32,6 +32,7 @@ const en: Dict = {
   "nav.commandDeck": "Command Deck",
   "nav.comps": "Comps Explorer",
   "nav.analytics": "Analytics",
+  "nav.deals": "My Deals",
   "nav.billing": "Billing",
 
   "home.eyebrow": "Deal Intelligence Terminal",
@@ -82,6 +83,7 @@ const ar: Dict = {
   "nav.commandDeck": "لوحة التحكم",
   "nav.comps": "مستكشف المقارنات",
   "nav.analytics": "التحليلات",
+  "nav.deals": "صفقاتي",
   "nav.billing": "الفوترة",
 
   "home.eyebrow": "منصة تحليل الصفقات العقارية",

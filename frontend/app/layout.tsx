@@ -4,6 +4,8 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { SiteHeader } from "@/components/site-header";
 import { NavRail } from "@/components/nav-rail";
+import { MobileNav } from "@/components/mobile-nav";
+import { BackendStatusBanner } from "@/components/backend-status-banner";
 import { fetchTicker } from "@/lib/api";
 
 const fraunces = Fraunces({
@@ -48,11 +50,14 @@ export default async function RootLayout({
         <Providers>
           <div className="flex h-full min-h-screen flex-col">
             <SiteHeader ticks={ticks} />
+            <BackendStatusBanner />
             <div className="flex flex-1">
               <NavRail />
-              <main className="min-w-0 flex-1">{children}</main>
+              {/* pb-16 clears the fixed mobile bottom bar; removed at md+ */}
+              <main className="min-w-0 flex-1 pb-16 md:pb-0">{children}</main>
             </div>
           </div>
+          <MobileNav />
         </Providers>
       </body>
     </html>

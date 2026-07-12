@@ -12,7 +12,13 @@ from app.db import get_session_factory
 from app.models import User
 from app.services.billing_service import enforce_quota
 from app.services.pdf import markdown_to_pdf_bytes
-from app.services.pipeline_runner import create_deal_query, ensure_tables, get_deal_query, run_pipeline
+from app.services.pipeline_runner import (
+    create_deal_query,
+    ensure_tables,
+    get_deal_query,
+    list_deal_queries,
+    run_pipeline,
+)
 from app.streaming import subscribe, unsubscribe
 
 def client_ip_key(request: Request) -> str:
@@ -86,6 +92,20 @@ async def submit_deal_query(
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
     return DealQueryResponse(query_id=str(query_id))
+
+
+@router.get("")
+async def list_deals(
+    limit: int = 20,
+    offset: int = 0,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """The current user's deal history, newest first. Paginated; only the
+    caller's own deals (owner-scoped, same as the single-deal fetch)."""
+    limit = max(1, min(limit, 100))
+    offset = max(0, offset)
+    deals = list_deal_queries(current_user.user_id, limit=limit, offset=offset)
+    return {"deals": deals, "limit": limit, "offset": offset}
 
 
 @router.get("/{query_id}")

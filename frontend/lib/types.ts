@@ -70,6 +70,16 @@ export interface DealState {
   agent_trace: AgentTraceEntry[];
 }
 
+export type DealStatus = "processing" | "complete" | "error";
+
+export interface DealSummary {
+  query_id: number;
+  raw_query: string;
+  query_type?: QueryType | null;
+  status: DealStatus;
+  created_at?: string | null;
+}
+
 export interface MarketTrendPoint {
   community: string;
   month: string;

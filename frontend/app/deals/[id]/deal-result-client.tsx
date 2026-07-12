@@ -13,6 +13,17 @@ import { useAuth } from "@/components/auth-provider";
 import { dealStreamUrl, fetchDeal, AuthRequiredError } from "@/lib/api";
 import type { DealState } from "@/lib/types";
 
+/** Has the pipeline reached a terminal state for this deal? Used to decide
+ * whether there's anything left to stream. comps_search short-circuits after
+ * the comps step; every other query type runs through to the memo step. Any
+ * error entry is also terminal. */
+function isTerminal(deal: DealState): boolean {
+  const trace = deal.agent_trace ?? [];
+  if (trace.some((t) => t.status === "error")) return true;
+  const finalAgent = deal.query_type === "comps_search" ? "comps" : "memo";
+  return trace.some((t) => t.agent === finalAgent && t.status === "done");
+}
+
 export function DealResultClient({ queryId }: { queryId: string }) {
   const router = useRouter();
   const { token, loading: authLoading } = useAuth();
@@ -29,6 +40,65 @@ export function DealResultClient({ queryId }: { queryId: string }) {
     }
 
     let cancelled = false;
+    let completed = false;
+    let attempt = 0;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let catchUpTimer: ReturnType<typeof setTimeout> | undefined;
+
+    function normalize(d: DealState): DealState {
+      return {
+        ...d,
+        query_id: queryId,
+        retrieved_comps: d.retrieved_comps ?? [],
+        retrieved_clauses: d.retrieved_clauses ?? [],
+        compliance_flags: d.compliance_flags ?? [],
+        agent_trace: d.agent_trace ?? [],
+      };
+    }
+
+    function connect() {
+      if (cancelled || completed || !token) return;
+      setConnectionState("connecting");
+      const ws = new WebSocket(dealStreamUrl(queryId, token));
+      socketRef.current = ws;
+
+      ws.onopen = () => {
+        if (cancelled) return;
+        attempt = 0;
+        setConnectionState("open");
+      };
+      ws.onmessage = (event) => {
+        if (cancelled) return;
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === "state" || message.type === "complete") {
+            setDeal(normalize(message.data as DealState));
+          }
+          if (message.type === "complete" || message.type === "error") {
+            completed = true;
+          }
+        } catch {
+          // ignore malformed frames
+        }
+      };
+      ws.onerror = () => {
+        // onclose fires next; reconnection is handled there.
+      };
+      ws.onclose = () => {
+        if (cancelled) return;
+        if (completed) {
+          setConnectionState("closed");
+          return;
+        }
+        // Reconnect with capped exponential backoff (1s, 2s, 4s ... max 15s) --
+        // free-tier instances drop idle sockets and cold-start slowly.
+        setConnectionState("connecting");
+        const delay = Math.min(1000 * 2 ** attempt, 15000);
+        attempt += 1;
+        reconnectTimer = setTimeout(connect, delay);
+      };
+    }
+
     fetchDeal(queryId, token)
       .then((initial) => {
         if (cancelled) return;
@@ -36,14 +106,33 @@ export function DealResultClient({ queryId }: { queryId: string }) {
           setNotFound(true);
           return;
         }
-        setDeal({
-          ...initial,
-          query_id: queryId,
-          retrieved_comps: initial.retrieved_comps ?? [],
-          retrieved_clauses: initial.retrieved_clauses ?? [],
-          compliance_flags: initial.compliance_flags ?? [],
-          agent_trace: initial.agent_trace ?? [],
-        });
+        setDeal(normalize(initial));
+        if (isTerminal(initial)) {
+          // Pipeline already finished before this page loaded -- nothing to
+          // stream, so don't open (and endlessly reconnect) a socket.
+          completed = true;
+          setConnectionState("closed");
+          return;
+        }
+        connect();
+        // Safety net: if the "complete" frame was missed (e.g. the pipeline
+        // finished in the gap between the initial fetch and the socket
+        // connecting), re-fetch once to catch up rather than spin forever.
+        catchUpTimer = setTimeout(async () => {
+          if (cancelled || completed || !token) return;
+          try {
+            const latest = await fetchDeal(queryId, token);
+            if (cancelled || !latest) return;
+            setDeal(normalize(latest));
+            if (isTerminal(latest)) {
+              completed = true;
+              socketRef.current?.close();
+              setConnectionState("closed");
+            }
+          } catch {
+            // ignore; the socket path still governs live updates
+          }
+        }, 20000);
       })
       .catch((err) => {
         if (err instanceof AuthRequiredError) {
@@ -53,27 +142,11 @@ export function DealResultClient({ queryId }: { queryId: string }) {
         }
       });
 
-    const ws = new WebSocket(dealStreamUrl(queryId, token));
-    socketRef.current = ws;
-
-    ws.onopen = () => !cancelled && setConnectionState("open");
-    ws.onclose = () => !cancelled && setConnectionState("closed");
-    ws.onerror = () => !cancelled && setConnectionState("closed");
-    ws.onmessage = (event) => {
-      if (cancelled) return;
-      try {
-        const message = JSON.parse(event.data);
-        if (message.type === "state" || message.type === "complete") {
-          setDeal(message.data as DealState);
-        }
-      } catch {
-        // ignore malformed frames
-      }
-    };
-
     return () => {
       cancelled = true;
-      ws.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (catchUpTimer) clearTimeout(catchUpTimer);
+      socketRef.current?.close();
     };
   }, [queryId, token, authLoading, router]);
 

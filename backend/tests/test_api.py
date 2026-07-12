@@ -43,6 +43,50 @@ def _register(client: TestClient, email: str, password: str = "correct-horse-1")
     return {"Authorization": f"Bearer {res.json()['access_token']}"}
 
 
+def test_list_deals_is_owner_scoped_and_newest_first(monkeypatch, seeded_sqlite_db):
+    monkeypatch.setattr(query_agent_module, "complete_json", _fake_query_json)
+    monkeypatch.setattr(compliance_agent_module, "retrieve_clauses", lambda q, **k: SAMPLE_CLAUSES)
+    monkeypatch.setattr(compliance_agent_module, "complete_json", _fake_compliance_json)
+
+    with TestClient(app) as client:
+        alice = _register(client, "alice-deals@example.com")
+        bob = _register(client, "bob-deals@example.com")
+
+        # Alice submits two queries; Bob submits none.
+        first = client.post("/deals/query", json={"raw_query": "2BR Business Bay"}, headers=alice)
+        assert first.status_code == 202
+        second = client.post("/deals/query", json={"raw_query": "1BR Dubai Marina"}, headers=alice)
+        assert second.status_code == 202
+
+        listed = client.get("/deals", headers=alice)
+        assert listed.status_code == 200
+        deals = listed.json()["deals"]
+        assert len(deals) == 2
+        # Newest first: the second (higher query_id) comes first.
+        assert deals[0]["query_id"] > deals[1]["query_id"]
+        assert {"query_id", "raw_query", "query_type", "status", "created_at"} <= deals[0].keys()
+
+        # Bob sees none of Alice's deals.
+        bob_list = client.get("/deals", headers=bob)
+        assert bob_list.status_code == 200
+        assert bob_list.json()["deals"] == []
+
+
+def test_list_deals_requires_auth(seeded_sqlite_db):
+    with TestClient(app) as client:
+        assert client.get("/deals").status_code == 401
+
+
+def test_list_deals_pagination_clamps_limit(monkeypatch, seeded_sqlite_db):
+    with TestClient(app) as client:
+        headers = _register(client, "paginate@example.com")
+        res = client.get("/deals?limit=9999&offset=-5", headers=headers)
+        assert res.status_code == 200
+        body = res.json()
+        assert body["limit"] == 100  # clamped
+        assert body["offset"] == 0   # clamped
+
+
 def test_health():
     with TestClient(app) as client:
         assert client.get("/health").json() == {"status": "ok"}

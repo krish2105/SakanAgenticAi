@@ -97,3 +97,48 @@ def get_deal_query(query_id: int) -> dict | None:
             "agent_trace": row.agent_trace,
             "created_at": row.created_at.isoformat() if row.created_at else None,
         }
+
+
+def _derive_status(deal_state: dict | None, agent_trace: list | None) -> str:
+    """Best-effort status for the deal-history list. Phase 4 will persist an
+    authoritative status column; until then this is derived from what the
+    pipeline stored: no state yet => still processing; an error trace entry =>
+    error; otherwise complete."""
+    trace = agent_trace or (deal_state or {}).get("agent_trace") or []
+    if any(entry.get("status") == "error" for entry in trace):
+        return "error"
+    if not deal_state:
+        return "processing"
+    return "complete"
+
+
+def list_deal_queries(owner_id: int, limit: int = 20, offset: int = 0) -> list[dict]:
+    """Summary rows for the current user's deals, newest first (deal-history
+    page). Excludes the heavy deal_state/agent_trace blobs -- just enough to
+    render a list and link into each deal."""
+    from sqlalchemy import select
+
+    ensure_tables()
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        rows = (
+            session.execute(
+                select(DealQuery)
+                .where(DealQuery.owner_id == owner_id)
+                .order_by(DealQuery.created_at.desc(), DealQuery.query_id.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+            .scalars()
+            .all()
+        )
+        return [
+            {
+                "query_id": r.query_id,
+                "raw_query": r.raw_query,
+                "query_type": r.query_type,
+                "status": _derive_status(r.deal_state, r.agent_trace),
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ]

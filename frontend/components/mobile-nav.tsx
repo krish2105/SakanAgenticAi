@@ -5,14 +5,17 @@ import { cn } from "@/lib/utils";
 import { useLocale } from "@/components/locale-provider";
 import { NAV_ITEMS, isActive } from "@/lib/nav-items";
 
-export function NavRail() {
+/** Bottom tab bar for phones. The desktop NavRail is `hidden md:flex`, so
+ * without this there was no primary navigation at all under the md breakpoint.
+ * Fixed to the bottom, safe-area aware. */
+export function MobileNav() {
   const pathname = usePathname();
   const { t } = useLocale();
 
   return (
     <nav
       aria-label="Primary"
-      className="hidden md:flex w-14 shrink-0 flex-col items-center gap-1 border-e border-border bg-surface py-4"
+      className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       {NAV_ITEMS.map(({ href, labelKey, icon: Icon }) => {
         const active = isActive(pathname, href);
@@ -23,16 +26,14 @@ export function NavRail() {
             href={href}
             aria-label={label}
             aria-current={active ? "page" : undefined}
-            title={label}
             className={cn(
-              "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brass",
-              active
-                ? "bg-brass/15 text-brass"
-                : "text-text-muted hover:bg-border/40 hover:text-text-primary"
+              "flex flex-1 flex-col items-center gap-1 py-2 text-[10px] transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brass",
+              active ? "text-brass" : "text-text-muted hover:text-text-primary"
             )}
           >
             <Icon size={18} />
+            <span className="max-w-full truncate">{label}</span>
           </Link>
         );
       })}

@@ -1,4 +1,4 @@
-import type { Comp, DealState, MarketTrendPoint, DeveloperLeaderboardEntry, OffPlanFunnelEntry, Tick } from "@/lib/types";
+import type { Comp, DealState, DealSummary, MarketTrendPoint, DeveloperLeaderboardEntry, OffPlanFunnelEntry, Tick } from "@/lib/types";
 import { DEMO_TICKS, DEMO_SNAPSHOT, DEMO_COMPS, DEMO_TRENDS, DEMO_LEADERBOARD, DEMO_FUNNEL } from "@/lib/demo-data";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -143,6 +143,17 @@ export async function fetchDealMemo(queryId: string, token: string): Promise<{ m
     if (err instanceof AuthRequiredError) throw err;
     return null;
   }
+}
+
+export async function fetchDeals(
+  token: string,
+  { limit = 20, offset = 0 }: { limit?: number; offset?: number } = {}
+): Promise<DealSummary[]> {
+  const res = await authedGet<{ deals: DealSummary[] }>(
+    `/deals?limit=${limit}&offset=${offset}`,
+    token
+  );
+  return res.deals;
 }
 
 export function dealStreamUrl(queryId: string, token: string): string {
