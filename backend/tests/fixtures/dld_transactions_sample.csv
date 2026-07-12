@@ -1,0 +1,13 @@
+transaction_id,trans_group_en,instance_date,actual_worth,procedure_area,property_type_en,property_sub_type_en,property_usage_en,reg_type_en,area_name_en,building_name_en,project_name_en,rooms_en
+TXN1,Sales,01-03-2025,1850000,85.5,Unit,Flat,Residential,Existing Properties,Business Bay,Marina Gate II,,2 B/R
+TXN2,Sales,15-06-2025,5200000,350.0,Villa,Villa,Residential,Existing Properties,Arabian Ranches,,Saheel,4 B/R
+TXN3,Sales,10-01-2025,2600000,180.0,Unit,Stacked Townhouses,Residential,Off-Plan Properties,DAMAC Hills,,Camelia,3 B/R
+TXN4,Mortgages,01-02-2025,1000000,90.0,Unit,Flat,Residential,Existing Properties,JVC,Building X,,1 B/R
+TXN5,Gifts,01-02-2025,500000,60.0,Unit,Flat,Residential,Existing Properties,JVC,Building X,,Studio
+TXN6,Sales,01-02-2025,3000000,200.0,Unit,Office,Commercial,Existing Properties,Business Bay,Office Tower,,
+TXN7,Sales,01-02-2025,1,80.0,Unit,Flat,Residential,Existing Properties,JVC,Building Y,,2 B/R
+TXN8,Sales,01-02-2025,1500000,0.005,Unit,Flat,Residential,Existing Properties,JVC,Building Y,,2 B/R
+TXN9,Sales,01-02-2025,4000000,500.0,Land,Land,Residential,Existing Properties,Al Barsha,,,
+TXN10,Sales,20-04-2025,900000,40.0,Unit,Flat,Residential,Existing Properties,Dubai Marina,Marina Gate II,,Studio
+TXN1,Sales,01-03-2025,1850000,85.5,Unit,Flat,Residential,Existing Properties,Business Bay,Marina Gate II,,2 B/R
+TXN11,Sales,notadate,1200000,70.0,Unit,Flat,Residential,Existing Properties,JVC,Building Z,,1 B/R

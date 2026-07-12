@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: sakan
+      POSTGRES_PASSWORD: sakan
+      POSTGRES_DB: sakan
+    ports:
+      - "5432:5432"
+    volumes:
+      - sakan_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sakan -d sakan"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - sakan_qdrant_data:/qdrant/storage
+
+volumes:
+  sakan_postgres_data:
+  sakan_qdrant_data:
