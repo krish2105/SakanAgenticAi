@@ -35,6 +35,48 @@ echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
 npm run dev
 ```
 
+## Deploy to production (Render + Vercel)
+
+Per `ARCHITECTURE.md` Section 3: frontend → Vercel, backend + Postgres + Qdrant
+→ Docker Compose on Render (or Railway). This repo ships one-command configs
+for both:
+
+**Backend + Postgres + Qdrant (Render Blueprint):**
+1. Render dashboard → New → Blueprint → point at this repo. Render reads
+   [`render.yaml`](./render.yaml) and provisions `sakan-postgres`,
+   `sakan-backend`, and `sakan-qdrant` in one step.
+2. Set `ANTHROPIC_API_KEY` on the `sakan-backend` service (it's declared
+   `sync: false` in the blueprint, so Render prompts for it rather than
+   needing a value committed anywhere) — optional; every agent has a
+   deterministic fallback and runs fine without it.
+3. On boot, `backend/docker-entrypoint.sh` seeds the synthetic demo dataset
+   and ingests the regulatory corpus into Qdrant automatically (both
+   idempotent/best-effort — a failed ingest attempt logs and continues
+   rather than blocking the API from starting).
+4. Note the resulting public URL (e.g. `https://sakan-backend.onrender.com`).
+
+**Frontend (Vercel):**
+1. Vercel dashboard → New Project → import this repo → set **Root Directory**
+   to `frontend/` (or run `vercel` from inside `frontend/` with the Vercel
+   CLI — [`frontend/vercel.json`](./frontend/vercel.json) is already there).
+2. Set the `NEXT_PUBLIC_API_URL` project env var to the Render backend URL
+   from the step above.
+3. Deploy.
+
+**Honesty check on these deploy configs specifically:** they were written
+carefully and match Render/Vercel's documented Blueprint/CLI conventions, but
+could not be run end-to-end from this session — the sandbox's egress proxy is
+allowlist-based (npm, PyPI, GitHub, `api.anthropic.com` only) and returns 403
+on `vercel.com`, `render.com`, and even a plain `docker build` of
+`backend/Dockerfile` (Docker Hub blob pulls are blocked here the same way the
+`qdrant/qdrant` image pull was earlier). What *was* verified: the Dockerfile
+and entrypoint script are syntactically valid (`bash -n`) and reviewed by
+hand against the already-tested `seed_db.py`/`ingest_regulations.py` CLIs,
+and `render.yaml`/`vercel.json` both parse as valid YAML/JSON. Treat the
+Render service-to-service URL convention (`QDRANT_URL=http://sakan-qdrant:6333`)
+as the one detail worth double-checking against Render's current docs before
+relying on it, since that's the part with no local way to verify at all.
+
 Open http://localhost:3000. Without `ANTHROPIC_API_KEY` set, the pipeline
 still runs end-to-end — the Query Agent falls back to a default
 `comps_search` classification and the Valuation/Memo agents fall back to

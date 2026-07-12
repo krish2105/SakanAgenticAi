@@ -1,0 +1,49 @@
+# Render Blueprint for Sakan AI's backend + Postgres + Qdrant.
+# Deploy: Render dashboard -> New -> Blueprint -> point at this repo.
+# Render reads this file and provisions all three services below in one step.
+#
+# After it's up, set ANTHROPIC_API_KEY on the sakan-backend service (marked
+# sync: false below, so Render prompts for it rather than needing a value
+# committed here) to get real Claude reasoning instead of the deterministic
+# fallbacks every agent ships with.
+#
+# Note: this file was written and reasoned through carefully, but never
+# actually deployed from this session -- the sandbox it was built in has no
+# network path to render.com to verify it end-to-end. Double-check current
+# Render Blueprint syntax (especially the private-service-to-service URL
+# convention for QDRANT_URL) against Render's docs before relying on it.
+
+services:
+  - type: web
+    name: sakan-backend
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sakan-postgres
+          property: connectionString
+      - key: QDRANT_URL
+        value: http://sakan-qdrant:6333
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+  - type: web
+    name: sakan-qdrant
+    env: image
+    image:
+      url: docker.io/qdrant/qdrant:latest
+    plan: free
+    disk:
+      name: sakan-qdrant-data
+      mountPath: /qdrant/storage
+      sizeGB: 1
+
+databases:
+  - name: sakan-postgres
+    plan: free
+    databaseName: sakan
+    user: sakan
