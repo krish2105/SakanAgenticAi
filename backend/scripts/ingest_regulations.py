@@ -16,6 +16,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import functools
 import os
 import re
 import sys
@@ -107,7 +108,14 @@ def load_all_chunks(regulations_dir: Path) -> list[Chunk]:
     return chunks
 
 
+@functools.lru_cache(maxsize=1)
 def get_embedder(model_name: str = EMBEDDING_MODEL):
+    # Cached: the Compliance Agent calls this on every deal query via
+    # retrieval.py, and re-loading sentence-transformers/torch weights from
+    # disk on every request was enough to push a 512MB free-tier container
+    # over its memory limit mid-pipeline (external OOM kill, not a catchable
+    # exception -- see docker-entrypoint.sh's boot-time OOM note for the same
+    # failure class). One resident model instance, reused, instead.
     from sentence_transformers import SentenceTransformer
 
     return SentenceTransformer(model_name)
