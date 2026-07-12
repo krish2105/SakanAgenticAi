@@ -22,7 +22,15 @@ def _normalize_url(url: str) -> str:
 
 def get_engine(database_url: str | None = None):
     url = database_url or os.environ.get("DATABASE_URL", DATABASE_URL)
-    return create_engine(_normalize_url(url), future=True)
+    normalized = _normalize_url(url)
+    # connect_timeout: psycopg2 has no default, so a stalled TCP handshake
+    # (a suspended free-tier Postgres taking unusually long to wake, a
+    # network blip that silently drops packets instead of rejecting) hangs
+    # the calling thread indefinitely instead of raising -- which the deal
+    # pipeline can't recover from or report. pool_pre_ping avoids handing
+    # out a connection that went stale while idle.
+    connect_args = {"connect_timeout": 10} if normalized.startswith("postgresql") else {}
+    return create_engine(normalized, future=True, pool_pre_ping=True, connect_args=connect_args)
 
 
 def get_session_factory(engine=None):

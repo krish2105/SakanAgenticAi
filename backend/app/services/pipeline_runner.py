@@ -39,11 +39,11 @@ def _persist(query_id: int, state_dict: dict) -> None:
 
 def _run_sync(query_id: int, raw_query: str, loop: asyncio.AbstractEventLoop) -> None:
     query_id_str = str(query_id)
-    pipeline = get_deal_pipeline()
-    initial_state = DealState(query_id=query_id_str, raw_query=raw_query)
-
-    last_state: dict = initial_state.model_dump()
+    last_state: dict = {"query_id": query_id_str, "raw_query": raw_query, "agent_trace": []}
     try:
+        pipeline = get_deal_pipeline()
+        initial_state = DealState(query_id=query_id_str, raw_query=raw_query)
+        last_state = initial_state.model_dump()
         for state_dict in pipeline.stream(initial_state.model_dump(), stream_mode="values"):
             last_state = state_dict
             publish_threadsafe(loop, query_id_str, {"type": "state", "data": state_dict})
