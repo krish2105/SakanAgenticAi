@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -e
 
+echo "Running database migrations (alembic upgrade head)..."
+# Owns the schema in production. run_migrations.py adopts a pre-Alembic DB by
+# stamping the baseline, so this is safe on the existing live database too.
+# Fail hard here (no `|| true`): starting the API against an un-migrated schema
+# would fail confusingly later -- better to fail the deploy loudly now.
+python scripts/run_migrations.py
+
 echo "Seeding synthetic demo dataset (idempotent, safe to re-run)..."
 python scripts/seed_db.py --seed-dir seed_data || echo "seed_db.py failed -- continuing without re-seeding."
 

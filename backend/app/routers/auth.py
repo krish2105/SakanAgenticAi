@@ -7,6 +7,7 @@ from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from app import config
 from app.auth import create_access_token, get_current_user, hash_password, verify_password
 from app.db import get_engine, get_session_factory
 from app.models import Base, User
@@ -17,6 +18,10 @@ _VALID_ROLES = {"Agent", "Investor", "Admin"}
 
 
 def ensure_users_table() -> None:
+    # Alembic owns the schema in production (see pipeline_runner.ensure_tables);
+    # this lazy create_all only runs in dev/test.
+    if config.IS_PRODUCTION:
+        return
     Base.metadata.create_all(get_engine(), tables=[User.__table__])
 
 

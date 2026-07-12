@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from app import config
 from app.agents.graph import get_deal_pipeline
 from app.db import get_engine, get_session_factory
 from app.deal_state import DealState
@@ -15,7 +16,13 @@ log = logging.getLogger("sakan.pipeline")
 
 
 def ensure_tables() -> None:
-    # User first: DealQuery.owner_id is a foreign key into it.
+    # In production Alembic owns the schema (run at deploy via
+    # scripts/run_migrations.py), so request-time DDL is both unnecessary and a
+    # hazard -- skip it. In dev/test this lazily creates the auth/deal tables
+    # (seed_db only creates the data tables) so the suite needs no separate
+    # migration step. User first: DealQuery.owner_id is a foreign key into it.
+    if config.IS_PRODUCTION:
+        return
     Base.metadata.create_all(get_engine(), tables=[User.__table__, DealQuery.__table__, AuditLog.__table__])
 
 

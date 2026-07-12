@@ -279,9 +279,10 @@ backend/
     map_dld_columns.py         # real-DLD-data adapter (alternative transactions path)
     ingest_regulations.py      # chunks + embeds regulations/*.md into Qdrant
     purge_old_deal_queries.py  # PII retention enforcement (see "Data retention")
-    migrate_billing_columns.py # one-off ALTER TABLE for pre-billing Postgres databases
-    migrate_add_data_provenance.py # one-off ALTER TABLE for pre-provenance Postgres databases
+    run_migrations.py          # deploy-time Alembic bootstrap (adopts pre-Alembic DBs)
     run_evals.py                # comps relevance / valuation accuracy / citation guardrail (see "Evals")
+  migrations/                  # Alembic: env.py + versions/ (schema is Alembic-owned)
+  alembic.ini                  # Alembic config (DB URL read from app.db, not here)
   seed_data/                   # committed synthetic CSVs (demo-scale)
   tests/                       # 85 tests: agents, AVM, data source, API, auth, billing, whatsapp, evals, dataset, RAG ingestion, DLD adapter
 data/                          # place a downloaded DLD/Kaggle CSV here (gitignored)
@@ -435,14 +436,34 @@ the endpoint that actually spends Anthropic budget per call.
   real backend (register → see quota → click upgrade → see Stripe's
   "not configured" 501 surface as a clean UI error), which is as far as this
   environment can verify it.
-- **Existing deployments:** `users.tier`/`stripe_customer_id`/etc. are new
-  columns; like the `owner_id` incident earlier in this project,
-  `create_all()` won't add them to an already-deployed `users` table. Run
-  `python scripts/migrate_billing_columns.py` once against any Postgres
-  database that predates this change (idempotent, safe to re-run) — this
-  session used it for real against its own sandbox Postgres before manually
-  verifying `/billing` in the browser, which is exactly the schema-drift
-  category the earlier incident should have made routine to check for.
+- **Existing deployments:** `users.tier`/`stripe_customer_id`/etc. were once
+  added by a hand-rolled `ALTER TABLE` script, because `create_all()` never
+  ALTERs an existing table (the same class of gap as the earlier `owner_id`
+  incident). Schema evolution is now owned by **Alembic**: `scripts/run_migrations.py`
+  runs on every deploy (`docker-entrypoint.sh`) and safely *adopts* a
+  pre-Alembic database by stamping the baseline rather than re-creating it, so
+  this whole category of manual schema-drift fix is retired. See "Database
+  migrations" below.
+
+## Database migrations
+
+Schema is owned by **Alembic** (`backend/migrations/`, config in
+`backend/alembic.ini`). The DB URL isn't in `alembic.ini` — `migrations/env.py`
+reads it from `app.db.get_engine()` so Alembic and the app never disagree.
+
+- **On deploy:** `docker-entrypoint.sh` runs `python scripts/run_migrations.py`
+  before starting the API. That helper is idempotent and handles all three DB
+  states: fresh (creates everything), already-Alembic-managed (upgrades to
+  head), and **pre-Alembic** (a DB built by the old `create_all` path, like the
+  first live deploy) — which it *adopts* by stamping the `0001_baseline`
+  revision instead of trying to re-create existing tables.
+- **New change:** edit `app/models.py`, then
+  `cd backend && alembic revision --autogenerate -m "describe change"`, review
+  the generated `migrations/versions/*.py`, and commit it. `tests/test_migrations.py`
+  fails CI if models and migrations drift out of sync.
+- **Local/tests** still lazily `create_all` the auth/deal tables (dev
+  convenience); those calls are no-ops when `SAKAN_ENV=production`, where
+  Alembic is the single source of truth.
 
 ## Evals
 
