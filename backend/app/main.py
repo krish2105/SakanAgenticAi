@@ -10,8 +10,8 @@ from app.config import CORS_ORIGINS
 from app.logging_config import configure_logging, request_id_ctx
 from app.middleware import RequestIDMiddleware
 from app.observability import check_readiness, init_sentry
-from app.routers import auth, billing, comps, deals, market, whatsapp, ws
-from app.routers.deals import limiter
+from app.ratelimit import limiter
+from app.routers import admin, auth, billing, comps, deals, market, whatsapp, ws
 
 configure_logging()
 init_sentry()
@@ -55,6 +55,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 
 app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(billing.router)
 app.include_router(deals.router)
 app.include_router(comps.router)

@@ -33,7 +33,16 @@ if not JWT_SECRET_KEY:
         stacklevel=2,
     )
 JWT_ALGORITHM = "HS256"
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 24 * 7))  # 7 days
+# Short-lived access token now that refresh tokens exist (Phase 3). The frontend
+# silently refreshes on expiry; a leaked access token is only valid for an hour.
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", 60))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS", 30))
+EMAIL_VERIFY_TOKEN_EXPIRE_HOURS = int(os.environ.get("EMAIL_VERIFY_TOKEN_EXPIRE_HOURS", 24))
+PASSWORD_RESET_TOKEN_EXPIRE_HOURS = int(os.environ.get("PASSWORD_RESET_TOKEN_EXPIRE_HOURS", 1))
+
+# Login brute-force protection (Phase 3).
+MAX_FAILED_LOGINS = int(os.environ.get("MAX_FAILED_LOGINS", 5))
+ACCOUNT_LOCKOUT_MINUTES = int(os.environ.get("ACCOUNT_LOCKOUT_MINUTES", 15))
 
 # Comma-separated list of allowed frontend origins, e.g. "https://sakan.vercel.app,http://localhost:3000".
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",") if o.strip()]

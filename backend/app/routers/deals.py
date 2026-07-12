@@ -4,10 +4,9 @@ import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 from app.auth import get_current_user, get_current_user_ws
+from app.ratelimit import client_ip_key, limiter  # noqa: F401  (client_ip_key re-exported for tests)
 from app.db import get_session_factory
 from app.models import User
 from app.services.billing_service import enforce_quota
@@ -21,23 +20,7 @@ from app.services.pipeline_runner import (
 )
 from app.streaming import subscribe, unsubscribe
 
-def client_ip_key(request: Request) -> str:
-    """Rate-limit key that survives Render's (and most PaaS) reverse proxy.
-
-    slowapi's default get_remote_address reads request.client.host, which
-    behind a proxy is the *proxy's* IP -- so every user shares one bucket and
-    the 10/minute limit throttles the whole world together. The real client is
-    the left-most entry of X-Forwarded-For (the proxy appends, so [0] is the
-    original caller). Falls back to the socket address when the header is
-    absent (local/dev)."""
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return get_remote_address(request)
-
-
 router = APIRouter(prefix="/deals", tags=["deals"])
-limiter = Limiter(key_func=client_ip_key)
 
 # asyncio's event loop only keeps a *weak* reference to tasks it's running --
 # a fire-and-forget asyncio.create_task() with no other reference can be

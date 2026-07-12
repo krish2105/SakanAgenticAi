@@ -54,20 +54,30 @@ def test_run_migrations_adopts_legacy_database(tmp_path, monkeypatch):
     database_url = f"sqlite:///{db_path}"
     monkeypatch.setenv("DATABASE_URL", database_url)
 
-    # Simulate a pre-Alembic DB built by the old create_all path: real tables,
-    # but no alembic_version.
-    legacy_engine = create_engine(database_url)
-    Base.metadata.create_all(legacy_engine)
-    assert "alembic_version" not in inspect(legacy_engine).get_table_names()
+    # Simulate the *actual* pre-Alembic live DB: the original baseline schema
+    # (no Phase 3 auth_tokens table / user security columns) and no
+    # alembic_version. Build it by running the baseline migration, then dropping
+    # alembic_version to mimic "was never Alembic-managed".
+    command.upgrade(_alembic_config(database_url), "0001_baseline")
+    engine = create_engine(database_url)
+    with engine.begin() as conn:
+        conn.exec_driver_sql("DROP TABLE alembic_version")
+    insp = inspect(engine)
+    assert "alembic_version" not in insp.get_table_names()
+    assert "auth_tokens" not in insp.get_table_names()  # legacy: pre-Phase-3
 
-    # Must adopt (stamp) rather than error on "table already exists".
+    # Must adopt (stamp baseline) then upgrade forward -- not error on existing
+    # tables, and it should add the Phase 3 schema.
     from scripts.run_migrations import main as run_migrations
 
     run_migrations()
 
-    insp = inspect(create_engine(database_url))
-    assert "alembic_version" in insp.get_table_names()
-    assert "users" in insp.get_table_names()
+    insp2 = inspect(create_engine(database_url))
+    tables = insp2.get_table_names()
+    assert "alembic_version" in tables
+    assert "auth_tokens" in tables  # Phase 3 applied on top of the adopted baseline
+    user_cols = {c["name"] for c in insp2.get_columns("users")}
+    assert {"email_verified", "failed_login_attempts", "locked_until"} <= user_cols
 
 
 def test_run_migrations_creates_fresh_database(tmp_path, monkeypatch):

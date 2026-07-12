@@ -1,6 +1,6 @@
 """SQLAlchemy ORM models mirroring the Postgres schema in ARCHITECTURE.md Section 8."""
 from sqlalchemy import (
-    JSON, Column, String, Integer, Numeric, Date, DateTime, ForeignKey, Text, func
+    JSON, Boolean, Column, String, Integer, Numeric, Date, DateTime, ForeignKey, Text, func, text
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import declarative_base, relationship
@@ -101,7 +101,30 @@ class User(Base):
     stripe_subscription_id = Column(String(255), nullable=True)
     subscription_status = Column(String(30), nullable=True)  # active | canceled | past_due | ...
 
+    # Auth hardening (Phase 3). server_default keeps the ALTER on the existing
+    # live users table backfilling cleanly.
+    email_verified = Column(Boolean, nullable=False, server_default=text("false"))
+    failed_login_attempts = Column(Integer, nullable=False, server_default=text("0"))
+    locked_until = Column(DateTime, nullable=True)
+
     deal_queries = relationship("DealQuery", back_populates="owner")
+
+
+class AuthToken(Base):
+    """Opaque, single-use-ish tokens for refresh sessions, password reset, and
+    email verification. Only the SHA-256 hash of the raw token is stored, so a
+    DB leak doesn't hand over usable tokens. token_type in
+    {refresh, reset, verify}."""
+
+    __tablename__ = "auth_tokens"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False, index=True)
+    token_type = Column(String(20), nullable=False)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    revoked = Column(Boolean, nullable=False, server_default=text("false"))
+    created_at = Column(DateTime, server_default=func.now())
 
 
 class DealQuery(Base):

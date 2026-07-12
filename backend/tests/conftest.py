@@ -6,6 +6,20 @@ import pytest
 SEED_DIR = Path(__file__).resolve().parents[1] / "seed_data"
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """The shared slowapi limiter is a module-level singleton; without a reset
+    between tests its per-IP counters bleed across tests (every TestClient looks
+    like the same 'testclient' host), causing spurious 429s once total
+    login/query calls in a minute exceed a limit. Reset before and after each
+    test so limits are exercised only within the test that intends to."""
+    from app.ratelimit import limiter
+
+    limiter.reset()
+    yield
+    limiter.reset()
+
+
 @pytest.fixture()
 def seeded_sqlite_db(tmp_path, monkeypatch):
     """Points app.db at a fresh SQLite DB seeded with the synthetic dataset,
