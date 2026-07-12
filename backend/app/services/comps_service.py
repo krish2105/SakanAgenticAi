@@ -8,6 +8,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import ENABLE_SEMANTIC_EMBEDDINGS
 from app.models import Building, Transaction
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
@@ -23,12 +24,14 @@ def _get_embedder():
     container the moment a single pipeline run touched both this agent and
     the Compliance Agent (comps_search-only queries never hit that path,
     which is why this went unnoticed until query_agent's routing fix let
-    valuation/compliance/full_memo queries actually reach both). Returns
-    None (rather than raising) if it can't be loaded -- e.g. no network
-    access to Hugging Face -- so semantic_rerank degrades to a heuristic
-    instead of crashing the pipeline."""
+    valuation/compliance/full_memo queries actually reach both). Even a
+    single instance turned out to be enough on its own -- see
+    ENABLE_SEMANTIC_EMBEDDINGS in app/config.py -- so this is off by
+    default; returns None (rather than raising) whenever it can't or
+    shouldn't load, so semantic_rerank degrades to a heuristic instead of
+    crashing the pipeline."""
     global _embedder_load_failed
-    if _embedder_load_failed:
+    if not ENABLE_SEMANTIC_EMBEDDINGS or _embedder_load_failed:
         return None
     try:
         from ingest_regulations import get_embedder

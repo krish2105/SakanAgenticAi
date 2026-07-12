@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
 from ingest_regulations import COLLECTION_NAME, build_qdrant_client, get_embedder  # noqa: E402
-from app.config import QDRANT_API_KEY, QDRANT_URL  # noqa: E402
+from app.config import ENABLE_SEMANTIC_EMBEDDINGS, QDRANT_API_KEY, QDRANT_URL  # noqa: E402
 
 
 def compose_retrieval_query(
@@ -35,6 +35,13 @@ def retrieve_clauses(
     looked at it, per-clause, rather than one blanket disclaimer covering
     a corpus that's entirely unreviewed today.
     """
+    if not ENABLE_SEMANTIC_EMBEDDINGS and embedder is None:
+        raise RuntimeError(
+            "ENABLE_SEMANTIC_EMBEDDINGS is off (default on small/free-tier plans -- "
+            "sentence-transformers/torch alone can exceed 512MB). compliance_agent_node "
+            "catches this and falls back to its documented 'unable to verify' response."
+        )
+
     client = client or build_qdrant_client(QDRANT_URL, api_key=QDRANT_API_KEY)
     embedder = embedder or get_embedder()
 

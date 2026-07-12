@@ -50,3 +50,15 @@ WHATSAPP_PHONE_NUMBER_ID = os.environ.get("WHATSAPP_PHONE_NUMBER_ID")  # the sen
 DATA_SOURCE = os.environ.get("DATA_SOURCE", "synthetic")
 LICENSED_DATA_FEED_URL = os.environ.get("LICENSED_DATA_FEED_URL")
 LICENSED_DATA_FEED_API_KEY = os.environ.get("LICENSED_DATA_FEED_API_KEY")
+
+# Off by default: sentence-transformers + its torch backend is enough on its
+# own (a single resident instance, not even counting duplicates) to push a
+# 512MB free-tier container over its memory limit -- observed as repeated
+# "Ran out of memory" instance failures on Render's free plan even after
+# fixing duplicate model loads. Both call sites (comps_service.semantic_rerank,
+# compliance_agent's retrieve_clauses) already have documented, honest
+# degraded-mode fallbacks (heuristic re-rank; "unable to verify — recommend
+# manual RERA check") for exactly this case, so skipping the model entirely
+# by default is safer than intermittently losing whole pipeline runs to OOM.
+# Set to "true" on a plan with enough RAM to actually use semantic search.
+ENABLE_SEMANTIC_EMBEDDINGS = os.environ.get("ENABLE_SEMANTIC_EMBEDDINGS", "false").lower() == "true"
