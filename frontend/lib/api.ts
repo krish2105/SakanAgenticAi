@@ -21,15 +21,111 @@ async function safeGet<T>(path: string, fallback: T, init?: RequestInit): Promis
   }
 }
 
+// --- Token storage + silent refresh ---------------------------------------
+//
+// Access tokens are short-lived (backend Phase 3). The stored refresh token is
+// exchanged transparently on a 401, so the user isn't bounced to /login every
+// hour. localStorage is the single source of truth; the auth provider mirrors
+// it into React state via onTokenChange.
+
+const ACCESS_KEY = "sakan_token";
+const REFRESH_KEY = "sakan_refresh_token";
+
+type TokenListener = (accessToken: string | null) => void;
+const tokenListeners = new Set<TokenListener>();
+
+export function onTokenChange(listener: TokenListener): () => void {
+  tokenListeners.add(listener);
+  return () => {
+    tokenListeners.delete(listener);
+  };
+}
+
+export function getAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(ACCESS_KEY);
+}
+
+export function getRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(REFRESH_KEY);
+}
+
+export function setTokens(accessToken: string, refreshToken?: string | null): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(ACCESS_KEY, accessToken);
+  if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
+  tokenListeners.forEach((fn) => fn(accessToken));
+}
+
+export function clearTokens(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(ACCESS_KEY);
+  localStorage.removeItem(REFRESH_KEY);
+  tokenListeners.forEach((fn) => fn(null));
+}
+
+let refreshInFlight: Promise<string | null> | null = null;
+
+/** Exchange the refresh token for a new access token. Deduped: concurrent 401s
+ * share one refresh request. Returns the new access token, or null (and clears
+ * storage) if the refresh token is gone/invalid. */
+async function refreshAccessToken(): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight;
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return null;
+  refreshInFlight = (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      if (!res.ok) {
+        clearTokens();
+        return null;
+      }
+      const data = await res.json();
+      setTokens(data.access_token, data.refresh_token);
+      return data.access_token as string;
+    } catch {
+      return null;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
+}
+
 function authHeaders(token: string): HeadersInit {
   return { Authorization: `Bearer ${token}` };
 }
 
-/** Like safeGet, but for endpoints that require auth: a 401 means "not
- * logged in (anymore)" and should send the user to /login, not silently
- * fall back to demo data the way a network blip would. */
+/** Authenticated fetch with transparent one-shot refresh on 401. Prefers the
+ * stored access token (kept fresh by refresh) over any token a caller passes,
+ * so a background refresh benefits every subsequent call. */
+async function authedFetch(path: string, init: RequestInit = {}, token?: string): Promise<Response> {
+  const access = getAccessToken() || token || "";
+  const doFetch = (bearer: string) =>
+    fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers: { ...(init.headers || {}), ...authHeaders(bearer) },
+      cache: "no-store",
+    });
+
+  let res = await doFetch(access);
+  if (res.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) res = await doFetch(refreshed);
+  }
+  return res;
+}
+
+/** Like safeGet, but for endpoints that require auth: a still-401 (even after a
+ * refresh attempt) means "not logged in anymore" and should send the user to
+ * /login, not silently fall back to demo data. */
 async function authedGet<T>(path: string, token: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { headers: authHeaders(token), cache: "no-store" });
+  const res = await authedFetch(path, { method: "GET" }, token);
   if (res.status === 401) throw new AuthRequiredError();
   if (!res.ok) throw new Error(`${path} -> ${res.status}`);
   return res.json();
@@ -70,6 +166,7 @@ export interface AuthUser {
   email: string;
   full_name: string | null;
   role: string;
+  email_verified?: boolean;
 }
 
 async function parseAuthError(res: Response): Promise<string> {
@@ -91,6 +188,7 @@ export async function registerUser(email: string, password: string, fullName?: s
   });
   if (!res.ok) throw new Error(await parseAuthError(res));
   const data = await res.json();
+  setTokens(data.access_token, data.refresh_token);
   return data.access_token as string;
 }
 
@@ -102,7 +200,52 @@ export async function loginUser(email: string, password: string): Promise<string
   });
   if (!res.ok) throw new Error(await parseAuthError(res));
   const data = await res.json();
+  setTokens(data.access_token, data.refresh_token);
   return data.access_token as string;
+}
+
+/** Revoke the refresh token server-side, then clear local storage. */
+export async function logoutUser(): Promise<void> {
+  const refreshToken = getRefreshToken();
+  if (refreshToken) {
+    try {
+      await fetch(`${API_BASE}/auth/logout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+    } catch {
+      // best-effort; clear locally regardless
+    }
+  }
+  clearTokens();
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  // Always resolves (backend returns 202 whether or not the email exists).
+  await fetch(`${API_BASE}/auth/forgot`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/auth/reset`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, new_password: newPassword }),
+  });
+  if (!res.ok) throw new Error(await parseAuthError(res));
+}
+
+export async function verifyEmail(token: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/auth/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  if (!res.ok) throw new Error(await parseAuthError(res));
 }
 
 export async function fetchMe(token: string): Promise<AuthUser | null> {
@@ -116,11 +259,11 @@ export async function fetchMe(token: string): Promise<AuthUser | null> {
 // --- Deals (all require auth) ---
 
 export async function submitDealQuery(raw_query: string, token: string): Promise<{ query_id: string }> {
-  const res = await fetch(`${API_BASE}/deals/query`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders(token) },
-    body: JSON.stringify({ raw_query }),
-  });
+  const res = await authedFetch(
+    "/deals/query",
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raw_query }) },
+    token
+  );
   if (res.status === 401) throw new AuthRequiredError();
   if (res.status === 429) throw new Error("Too many queries — wait a moment and try again.");
   if (!res.ok) throw new Error(await parseAuthError(res));
@@ -204,11 +347,11 @@ export async function fetchBillingStatus(token: string): Promise<BillingStatus |
 }
 
 export async function startCheckout(tier: "pro" | "team", token: string): Promise<string> {
-  const res = await fetch(`${API_BASE}/billing/checkout`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders(token) },
-    body: JSON.stringify({ tier }),
-  });
+  const res = await authedFetch(
+    "/billing/checkout",
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tier }) },
+    token
+  );
   if (res.status === 401) throw new AuthRequiredError();
   if (!res.ok) throw new Error(await parseAuthError(res));
   const data = await res.json();
@@ -216,7 +359,7 @@ export async function startCheckout(tier: "pro" | "team", token: string): Promis
 }
 
 export async function openBillingPortal(token: string): Promise<string> {
-  const res = await fetch(`${API_BASE}/billing/portal`, { method: "POST", headers: authHeaders(token) });
+  const res = await authedFetch("/billing/portal", { method: "POST" }, token);
   if (res.status === 401) throw new AuthRequiredError();
   if (!res.ok) throw new Error(await parseAuthError(res));
   const data = await res.json();
@@ -227,7 +370,7 @@ export async function openBillingPortal(token: string): Promise<string> {
  * either, so the PDF export is fetched with the header and downloaded as a
  * blob instead of navigated to directly. */
 export async function downloadDealMemoPdf(queryId: string, token: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/deals/${queryId}/memo?format=pdf`, { headers: authHeaders(token) });
+  const res = await authedFetch(`/deals/${queryId}/memo?format=pdf`, { method: "GET" }, token);
   if (res.status === 401) throw new AuthRequiredError();
   if (!res.ok) throw new Error(await parseAuthError(res));
 

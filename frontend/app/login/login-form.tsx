@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -88,6 +89,14 @@ export function LoginForm() {
               {submitting ? t("auth.pleaseWait") : mode === "login" ? t("auth.signIn") : t("auth.createAccount")}
             </Button>
           </form>
+          {mode === "login" && (
+            <Link
+              href="/forgot"
+              className="mt-3 block text-center text-sm text-text-muted underline decoration-dotted hover:text-text-primary"
+            >
+              {t("auth.forgotPassword")}
+            </Link>
+          )}
         </CardContent>
       </Card>
 

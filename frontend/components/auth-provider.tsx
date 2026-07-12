@@ -2,9 +2,16 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { fetchMe, loginUser, registerUser, type AuthUser } from "@/lib/api";
-
-const TOKEN_STORAGE_KEY = "sakan_token";
+import {
+  clearTokens,
+  fetchMe,
+  getAccessToken,
+  loginUser,
+  logoutUser,
+  onTokenChange,
+  registerUser,
+  type AuthUser,
+} from "@/lib/api";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -23,46 +30,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  // Restore a session from storage on mount. api.ts owns token storage now.
+  // The work lives in a nested async function so no setState runs synchronously
+  // in the effect body (authedGet also transparently refreshes an expired
+  // access token during fetchMe).
   useEffect(() => {
-    async function restoreSession() {
-      const stored = typeof window !== "undefined" ? localStorage.getItem(TOKEN_STORAGE_KEY) : null;
+    let cancelled = false;
+    async function restore() {
+      const stored = getAccessToken();
       const me = stored ? await fetchMe(stored) : null;
+      if (cancelled) return;
       if (stored && me) {
-        setToken(stored);
+        setToken(getAccessToken());
         setUser(me);
       } else if (stored) {
-        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        clearTokens();
       }
       setLoading(false);
     }
-    restoreSession();
+    void restore();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const applyToken = useCallback(async (newToken: string) => {
-    localStorage.setItem(TOKEN_STORAGE_KEY, newToken);
-    setToken(newToken);
-    const me = await fetchMe(newToken);
-    setUser(me);
+  // Stay in sync when a background refresh rotates the access token, or a failed
+  // refresh clears it (multi-tab-aware for the current tab's in-memory state).
+  useEffect(() => {
+    return onTokenChange((newAccess) => {
+      setToken(newAccess);
+      if (!newAccess) setUser(null);
+    });
   }, []);
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      const newToken = await loginUser(email, password);
-      await applyToken(newToken);
-    },
-    [applyToken]
-  );
+  const login = useCallback(async (email: string, password: string) => {
+    await loginUser(email, password); // stores tokens
+    setToken(getAccessToken());
+    setUser(await fetchMe(getAccessToken() || ""));
+  }, []);
 
-  const register = useCallback(
-    async (email: string, password: string, fullName?: string) => {
-      const newToken = await registerUser(email, password, fullName);
-      await applyToken(newToken);
-    },
-    [applyToken]
-  );
+  const register = useCallback(async (email: string, password: string, fullName?: string) => {
+    await registerUser(email, password, fullName); // stores tokens
+    setToken(getAccessToken());
+    setUser(await fetchMe(getAccessToken() || ""));
+  }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    void logoutUser(); // revoke server-side + clear storage (fires onTokenChange)
     setToken(null);
     setUser(null);
     router.push("/login");
