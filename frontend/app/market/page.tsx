@@ -2,6 +2,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { PriceTrendChart } from "@/components/charts/price-trend-chart";
 import { DeveloperLeaderboardChart } from "@/components/charts/developer-leaderboard-chart";
 import { OffPlanFunnelChart } from "@/components/charts/off-plan-funnel-chart";
+import { T } from "@/components/t";
 import { fetchMarketTrends, fetchDeveloperLeaderboard, fetchOffPlanFunnel } from "@/lib/api";
 
 export default async function MarketAnalyticsPage() {
@@ -13,10 +14,11 @@ export default async function MarketAnalyticsPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
-      <h1 className="font-display text-2xl font-semibold text-text-primary">Analytics</h1>
+      <h1 className="font-display text-2xl font-semibold text-text-primary">
+        <T k="market.title" />
+      </h1>
       <p className="mt-1 text-sm text-text-muted">
-        Price trends, developer track record, and off-plan sell-through — aggregated from the
-        seeded transaction dataset.
+        <T k="market.subtitle" />
       </p>
 
       <div className="mt-6 flex flex-col gap-4">

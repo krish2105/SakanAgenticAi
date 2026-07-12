@@ -43,7 +43,12 @@ export function DeveloperLeaderboardChart({ developers }: { developers: Develope
           </tbody>
         </table>
       ) : (
-        <div className="mt-4" style={{ height: sorted.length * 34 + 20 }}>
+        /* dir="ltr": Recharts isn't RTL-aware -- its category-axis label
+           layout overlaps the bars under an inherited dir="rtl" (caught
+           via an actual Arabic-mode screenshot, not assumed). Keeping
+           data visualizations LTR even inside an RTL page is standard
+           practice for numeric charts, not a workaround. */
+        <div className="mt-4" dir="ltr" style={{ height: sorted.length * 34 + 20 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={sorted} layout="vertical" margin={{ left: 8, right: 24, top: 4, bottom: 4 }}>
               <CartesianGrid stroke={colors.border} strokeDasharray="3 3" horizontal={false} />

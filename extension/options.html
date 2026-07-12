@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Sakan AI — Settings</title>
+<link rel="stylesheet" href="popup.css" />
+<style>
+  body { width: 420px; }
+</style>
+</head>
+<body>
+  <header><span class="title">Sakan AI — Settings</span></header>
+  <section>
+    <h2>Backend URL</h2>
+    <p class="hint">
+      Where this extension sends comps searches and deal queries. Defaults to a local dev
+      backend; point it at your deployed Render URL to use this against production data.
+    </p>
+    <form id="settings-form">
+      <input type="url" id="backend-url" placeholder="http://localhost:8000" required />
+      <button type="submit">Save</button>
+    </form>
+    <p id="saved-note" class="hint" hidden>Saved.</p>
+  </section>
+  <script src="api.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

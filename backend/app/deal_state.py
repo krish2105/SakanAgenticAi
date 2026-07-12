@@ -31,6 +31,16 @@ class DealState(BaseModel):
     valuation_method: Optional[str] = None
     valuation_rationale: Optional[str] = None
 
+    # AVM (Phase D): a statistical model's price/sqft estimate, computed
+    # independently of retrieved_comps and given to the LLM as a grounding
+    # anchor ("layered on top for explanation" -- MVP roadmap). None when
+    # there's too little training data or the community/type wasn't seen
+    # in training (app/services/avm.py).
+    avm_price_per_sqft: Optional[float] = None
+    avm_price_per_sqft_low: Optional[float] = None
+    avm_price_per_sqft_high: Optional[float] = None
+    avm_n_training_samples: Optional[int] = None
+
     # Compliance RAG Agent output
     retrieved_clauses: list[dict] = Field(default_factory=list)
     compliance_flags: list[str] = Field(default_factory=list)

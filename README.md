@@ -232,8 +232,8 @@ backend/
     llm.py                     # Anthropic Messages API wrapper
     agents/                    # query / comps / valuation / compliance / memo nodes + graph.py
     rag/retrieval.py           # Qdrant retrieval for the Compliance Agent
-    routers/                   # auth, billing, deals, comps, market, ws
-    services/                  # comps_service, pipeline_runner, pdf, streaming, billing_service
+    routers/                   # auth, billing, deals, comps, market, whatsapp, ws
+    services/                  # comps_service, pipeline_runner, pdf, streaming, billing_service, avm
   scripts/
     generate_dataset.py        # synthetic demo dataset generator
     seed_db.py                 # loads seed_data/*.csv into Postgres
@@ -243,13 +243,14 @@ backend/
     migrate_billing_columns.py # one-off ALTER TABLE for pre-billing Postgres databases
     run_evals.py                # comps relevance / valuation accuracy / citation guardrail (see "Evals")
   seed_data/                   # committed synthetic CSVs (demo-scale)
-  tests/                       # 56 tests: agents, API, auth, billing, evals, dataset, RAG ingestion, DLD adapter
+  tests/                       # 72 tests: agents, AVM, API, auth, billing, whatsapp, evals, dataset, RAG ingestion, DLD adapter
 data/                          # place a downloaded DLD/Kaggle CSV here (gitignored)
 regulations/                   # 12 synthetic RERA/DLD-style regulatory docs (Section 6)
 frontend/
   app/                         # Command Deck, Deal Result, Memo Viewer, Comps Explorer, Analytics
   components/                  # design system primitives, ticker, trace drawer, charts, map
-  lib/                         # api.ts (backend client + demo-data fallback), types.ts
+  lib/                         # api.ts (backend client + demo-data fallback), types.ts, i18n.ts
+extension/                     # Chrome/Edge MV3 extension skeleton (Phase C) -- see extension/README.md
 ```
 
 ## Status — what's actually been verified
@@ -261,7 +262,7 @@ not Hugging Face, Kaggle, Docker Hub, or arbitrary tile servers) and **no
 what's implemented-but-unexercised:
 
 **Verified for real, end-to-end, in this environment:**
-- Backend: 56 tests pass (`cd backend && pytest tests/ -v`), covering every
+- Backend: 72 tests pass (`cd backend && pytest tests/ -v`), covering every
   agent node, the full LangGraph pipeline (both the `comps_search`
   short-circuit and the `full_memo` path), the compliance citation-validation
   guardrail (including a hallucinated-citation rejection test), all 8 API
@@ -430,16 +431,30 @@ the `sentence-transformers` model to be downloadable, so it degrades to
 "skipped" rather than failing the run when it isn't (true in this sandbox;
 usually not true on a GitHub Actions runner).
 
-**A real bug this eval caught before it shipped:** the original fallback
-valuation used a fixed median ± 7% band. Run against this repo's own
-synthetic dataset, that band covered the real held-out sale price only
-**4.4%** of the time (MAPE 43.7%) — the dataset has much wider intra-scenario
-price variance than a flat percentage assumes. Fixed by switching to a
-P25–P75 percentile band (with a small IQR pad, widening to ±15% around the
-median for scenarios with fewer than 4 comps); band coverage on the same
-dataset is now **66.7%**. Run `python scripts/run_evals.py` to see current
-numbers; thresholds and the reasoning behind them (why width_ratio gates the
-range instead of MAPE) are in the script's `THRESHOLDS` dict.
+**Three real bugs this eval caught before they shipped**, each one only
+visible by actually measuring against held-out real sales rather than
+eyeballing the code:
+1. The original fallback valuation used a fixed median ± 7% band. Run
+   against this repo's own synthetic dataset, that band covered the real
+   held-out sale price only **4.4%** of the time — intra-scenario price
+   variance is much wider than a flat percentage assumes. Fixed by
+   switching to a P25–P75 percentile band of the comps' own prices →
+   **66.7%** coverage.
+2. Adding the AVM (see "AVM" below) and multiplying its price/sqft
+   estimate by the comps' *median* size_sqft actually made things worse —
+   **13.3%** coverage. A "2BR" in this dataset ranges from a compact
+   ~800 sqft to an elevated ~2,300 sqft layout; collapsing that to one
+   median size threw away real size information the comps already
+   carried.
+3. Fixed by using the comps' P10–P90 size *range* instead of one median
+   size — propagating both the AVM's own price/sqft uncertainty and the
+   comps' size uncertainty into the final range → **88.9%** coverage, now
+   the production fallback path. Full reasoning is in
+   `valuation_agent._fallback_valuation`'s docstring.
+
+Run `python scripts/run_evals.py` to see current numbers; thresholds and
+the reasoning behind them (why width_ratio gates the range instead of
+MAPE) are in the script's `THRESHOLDS` dict.
 
 **LLM observability:** LangGraph pipelines trace to LangSmith automatically
 when `LANGCHAIN_TRACING_V2=true`, `LANGCHAIN_API_KEY`, and `LANGCHAIN_PROJECT`
@@ -447,6 +462,117 @@ are set — no code change needed, since `langsmith` is already a transitive
 dependency of `langgraph`. Not enabled/verified here (would need a LangSmith
 account this session can't provision), but it's the "or similar" the roadmap
 asks for, and it's a pure env-var flip when you have an account.
+
+## AVM
+
+Phase D's "an actual AVM layer... with the LLM reasoning layered on top for
+explanation rather than doing the estimation itself."
+[`backend/app/services/avm.py`](./backend/app/services/avm.py) fits a Ridge
+regression (one-hot community + property_type, numeric bedrooms + the
+subject building's avg_price_per_sqft) predicting **price per sqft** — not
+absolute price, since a free-text query like "2BR in Dubai Marina" never
+specifies the actual unit's size, and price/sqft is the one quantity
+that's comparable across unit sizes.
+
+- The Valuation Agent (`app/agents/valuation_agent.py`) trains/predicts
+  this per query (a Ridge fit on a few hundred rows is milliseconds — not
+  worth caching a model that would go stale or leak across databases in
+  tests), passes the estimate to the LLM as a grounding anchor it's asked
+  to reconcile against the comps, and — when there's no LLM — uses it
+  directly as the deterministic fallback's primary estimate instead of the
+  plain comp-percentile heuristic.
+- Not real ML sophistication: ~600 rows across ~140
+  community/type/bedroom combinations is not enough data to justify
+  anything fancier than Ridge, and `MIN_TRAINING_ROWS = 30` means it
+  simply declines to train (returns `None`, same graceful-degradation
+  posture as everything else here) rather than fit something meaningless
+  on real deployments with too little transaction history yet.
+- Verified for real against the seeded dataset: `backend/tests/test_avm.py`
+  checks a trained prediction lands within 20% of the real median for a
+  known scenario (this is the test that caught bug #2 above), that unseen
+  communities/missing fields return `None` instead of a garbage
+  extrapolation, and that the agent-level integration actually prefers the
+  AVM path when it's available.
+
+## Localization (Arabic + RTL)
+
+Phase C's "Arabic, for real this time... over 60% of the population speaks
+Arabic day-to-day." [`frontend/lib/i18n.ts`](./frontend/lib/i18n.ts) holds
+the dictionary; `LocaleProvider` (`components/locale-provider.tsx`) drives
+`document.documentElement.lang`/`dir` and persists the choice to
+`localStorage`. Toggle with the AR/EN button in the header.
+
+- **Scoped to the app chrome** — nav, page headers/subtitles, buttons, the
+  auth forms. Data pulled from the backend (community/building names,
+  transaction figures, agent-generated memo text) stays as-is: those are
+  proper nouns in Dubai real estate regardless of UI language, or would
+  need the LLM prompts themselves localized, which is real future work,
+  not something a UI toggle can fake.
+- **RTL layout, not just translated strings** — Tailwind logical
+  properties (`ps-`, `border-e`, etc.) throughout the chrome so the layout
+  actually mirrors under `dir="rtl"`, not just the text.
+- **A real bug this caught**: Recharts (the charting library) isn't
+  RTL-aware — its horizontal-bar category-axis labels overlapped the bars
+  under an inherited `dir="rtl"`, only visible by actually taking an
+  Arabic-mode screenshot, not from reading the component code. Fixed by
+  scoping all three chart containers to `dir="ltr"` explicitly, which is
+  standard practice for numeric data visualizations inside an
+  otherwise-RTL page, not a workaround.
+- Verified with real headless-browser passes in both directions: Command
+  Deck, Comps Explorer, Analytics, and the login form all screenshotted in
+  Arabic with the nav rail, header, and cards correctly mirrored and zero
+  console errors.
+
+## Extension (Chrome/Edge, skeleton)
+
+Phase C's "A Chrome extension or CRM plugin — surfacing a
+valuation/compliance check inline on a listing page... beats a standalone
+app for adoption." Lives in [`extension/`](./extension) — a Manifest V3
+extension with its own README covering what's real vs. not in more detail
+than fits here. Short version: popup-based comps search and full deal-query
+submission both hit the real backend and were verified end-to-end by
+actually loading the extension into headless Chromium (`--load-extension`)
+and driving it — a real comps search, a real login, a real deal query that
+created a real database row. It deliberately does not scrape listing pages
+(bayut.com/propertyfinder.ae's real markup isn't accessible from this
+sandbox to build a scraper against, and a guessed selector breaking
+silently is worse than not extracting anything) — the floating button on
+those sites is an entry point, not an auto-fill, today.
+
+## WhatsApp
+
+Phase C's "~70% of real Dubai property inquiries arrive over WhatsApp; a
+query-by-WhatsApp flow meets agents where they already work instead of
+asking them to open a new tab." [`backend/app/routers/whatsapp.py`](./backend/app/routers/whatsapp.py)
+implements the WhatsApp Business Cloud API's webhook contract: the GET
+handshake Meta uses to verify webhook ownership, `X-Hub-Signature-256`
+verification, and parsing inbound text messages out of Meta's documented
+payload shape.
+
+- **A message from a new phone number gets a pseudo-account
+  auto-provisioned** (`whatsapp+<number>@sakan.internal`, an unusable
+  random password) instead of requiring sign-up through the web app first
+  — that's the point of meeting agents where they already work. That
+  account still goes through the same `billing_service` quota as
+  everyone else (Starter tier, 5 full-pipeline queries/month by default),
+  no special-casing needed.
+- On completion, the pipeline's result gets summarized and sent back over
+  WhatsApp by subscribing to the same Redis/in-memory pub/sub channel the
+  web UI's WebSocket stream already uses (`app/streaming.py`) — reused
+  infrastructure, not a second notification system.
+- **Never verified against a real Meta/WhatsApp Business account** — no
+  such credentials exist in this sandbox. `backend/tests/test_whatsapp.py`
+  (11 tests) covers everything that doesn't need one: the handshake,
+  signature verification against a hand-built HMAC, payload parsing
+  against a fixture matching Meta's documented shape, pseudo-account
+  provisioning/reuse, and quota enforcement stopping a 6th webhook-driven
+  query in the same month. The actual outbound call to
+  `graph.facebook.com` has never round-tripped against Meta's servers.
+- Set `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`,
+  `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` from your Meta
+  developer app to enable it; without them the GET handshake always 403s
+  and the POST handler accepts unverified payloads (dev-only fallback,
+  same posture as the Stripe webhook without `STRIPE_WEBHOOK_SECRET`).
 
 ## Ethics & limitations
 

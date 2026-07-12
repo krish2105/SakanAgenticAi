@@ -3,30 +3,34 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGrid, Map, BarChart3, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/components/locale-provider";
 
 const items = [
-  { href: "/", label: "Command Deck", icon: LayoutGrid },
-  { href: "/comps", label: "Comps Explorer", icon: Map },
-  { href: "/market", label: "Analytics", icon: BarChart3 },
-  { href: "/billing", label: "Billing", icon: CreditCard },
+  { href: "/", labelKey: "nav.commandDeck", icon: LayoutGrid },
+  { href: "/comps", labelKey: "nav.comps", icon: Map },
+  { href: "/market", labelKey: "nav.analytics", icon: BarChart3 },
+  { href: "/billing", labelKey: "nav.billing", icon: CreditCard },
 ];
 
 export function NavRail() {
   const pathname = usePathname();
+  const { t } = useLocale();
 
   return (
     <nav
       aria-label="Primary"
-      className="hidden md:flex w-14 shrink-0 flex-col items-center gap-1 border-r border-border bg-surface py-4"
+      className="hidden md:flex w-14 shrink-0 flex-col items-center gap-1 border-e border-border bg-surface py-4"
     >
-      {items.map(({ href, label, icon: Icon }) => {
+      {items.map(({ href, labelKey, icon: Icon }) => {
         const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+        const label = t(labelKey);
         return (
           <Link
             key={href}
             href={href}
             aria-label={label}
             aria-current={active ? "page" : undefined}
+            title={label}
             className={cn(
               "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brass",

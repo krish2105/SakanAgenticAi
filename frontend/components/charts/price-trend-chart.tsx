@@ -58,7 +58,11 @@ export function PriceTrendChart({ trends }: { trends: MarketTrendPoint[] }) {
           </tbody>
         </table>
       ) : (
-        <div className="mt-4 h-64">
+        /* dir="ltr": see the comment in developer-leaderboard-chart.tsx --
+           Recharts isn't RTL-aware; kept consistent across all three
+           charts even though this one's numeric axes render fine either
+           way. */
+        <div className="mt-4 h-64" dir="ltr">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={series} margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
               <CartesianGrid stroke={colors.border} strokeDasharray="3 3" vertical={false} />

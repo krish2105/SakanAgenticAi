@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/components/auth-provider";
+import { useLocale } from "@/components/locale-provider";
 import {
   fetchBillingStatus,
   openBillingPortal,
@@ -30,6 +31,7 @@ function formatPrice(aed: number | null): string {
 }
 
 export function BillingClient({ plans }: { plans: BillingPlans }) {
+  const { t } = useLocale();
   const { token, loading: authLoading } = useAuth();
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [pendingTier, setPendingTier] = useState<string | null>(null);
@@ -66,25 +68,22 @@ export function BillingClient({ plans }: { plans: BillingPlans }) {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
-      <h1 className="font-display text-2xl font-semibold text-text-primary">Billing</h1>
-      <p className="mt-1 text-sm text-text-muted">
-        Pricing is directional and validated with design partners before it&apos;s final — see the
-        MVP roadmap.
-      </p>
+      <h1 className="font-display text-2xl font-semibold text-text-primary">{t("billing.title")}</h1>
+      <p className="mt-1 text-sm text-text-muted">{t("billing.subtitle")}</p>
 
       {!authLoading && !token && (
         <p className="mt-4 text-sm text-text-muted">
           <a href="/login" className="text-brass underline">
-            Log in
+            {t("billing.logIn")}
           </a>{" "}
-          to see your current plan and usage.
+          {t("billing.logInPrompt")}
         </p>
       )}
 
       {status && (
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle>Current plan</CardTitle>
+            <CardTitle>{t("billing.currentPlan")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -97,7 +96,7 @@ export function BillingClient({ plans }: { plans: BillingPlans }) {
             </div>
             {status.tier !== "starter" && (
               <Button variant="outline" size="sm" onClick={handleManage}>
-                Manage subscription
+                {t("billing.manageSubscription")}
               </Button>
             )}
           </CardContent>

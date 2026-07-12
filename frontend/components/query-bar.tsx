@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { submitDealQuery, AuthRequiredError } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
+import { useLocale } from "@/components/locale-provider";
 
 const EXAMPLE_QUERIES = [
   "2BR Business Bay under AED 2M",
@@ -17,6 +18,7 @@ const EXAMPLE_QUERIES = [
 
 export function QueryBar() {
   const router = useRouter();
+  const { t } = useLocale();
   const { token, loading: authLoading } = useAuth();
   const [value, setValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -56,17 +58,17 @@ export function QueryBar() {
         className="flex flex-col gap-2 sm:flex-row"
       >
         <div className="relative flex-1">
-          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+          <Search size={16} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-text-muted" />
           <Input
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            placeholder="2BR Business Bay under AED 2M..."
-            className="h-12 pl-9 font-body text-base"
+            placeholder={t("query.placeholder")}
+            className="h-12 ps-9 font-body text-base"
             aria-label="Deal query"
           />
         </div>
         <Button type="submit" size="lg" disabled={submitting || authLoading}>
-          {submitting ? "Running agents..." : token ? "Ask Sakan" : "Sign in to ask Sakan"}
+          {submitting ? "Running agents..." : token ? t("query.submit") : "Sign in to ask Sakan"}
         </Button>
       </form>
 

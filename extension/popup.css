@@ -1,0 +1,152 @@
+/* Loosely mirrors the main app's dark terminal palette (frontend/app/globals.css)
+   without pulling in the full design system -- this is a standalone static
+   page, not a Next.js build target. */
+:root {
+  --bg: #0b1220;
+  --surface: #121b2e;
+  --border: #25324a;
+  --text: #edeff3;
+  --muted: #8a94ac;
+  --brass: #c9a227;
+  --negative: #c4573b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 320px;
+  margin: 0;
+  padding: 12px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.title {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+#settings-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+section {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+section:last-of-type {
+  border-bottom: none;
+}
+
+h2 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 6px 8px;
+}
+
+textarea {
+  resize: vertical;
+}
+
+button[type="submit"] {
+  background: var(--brass);
+  color: var(--bg);
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button[type="submit"]:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 11.5px;
+  margin: 0 0 6px;
+}
+
+.error {
+  color: var(--negative);
+  font-size: 11.5px;
+}
+
+.link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--brass);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+}
+
+#comps-results {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.comp-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: var(--surface);
+  font-size: 11.5px;
+}
+
+.comp-row .price {
+  color: var(--brass);
+  font-variant-numeric: tabular-nums;
+}
+
+footer {
+  text-align: center;
+  color: var(--muted);
+  font-size: 10px;
+}

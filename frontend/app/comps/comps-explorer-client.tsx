@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { CompsFilterBar, type CompsFilters } from "@/components/comps-filter-bar";
+import { useLocale } from "@/components/locale-provider";
 import { fetchComps } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { Comp } from "@/lib/types";
@@ -17,6 +18,7 @@ const CompsMap = dynamic(() => import("@/components/comps-map").then((m) => m.Co
 });
 
 export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) {
+  const { t } = useLocale();
   const [filters, setFilters] = useState<CompsFilters>({ community: "", type: "", bedrooms: "" });
   const [comps, setComps] = useState<Comp[]>(initialComps);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
     <div className="flex h-full flex-col gap-4 px-6 py-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-text-primary">Comps Explorer</h1>
+          <h1 className="font-display text-2xl font-semibold text-text-primary">{t("comps.title")}</h1>
           <p className="text-sm text-text-muted">
             {loading ? "Loading…" : `${comps.length} transactions`}
           </p>

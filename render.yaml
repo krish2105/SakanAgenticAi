@@ -44,6 +44,14 @@
 #   FRONTEND_URL       - your Vercel frontend URL; used for Stripe Checkout's
 #                        success/cancel redirect targets. Defaults to
 #                        http://localhost:3000, which is wrong for production.
+#   WHATSAPP_VERIFY_TOKEN,
+#   WHATSAPP_APP_SECRET,
+#   WHATSAPP_ACCESS_TOKEN,
+#   WHATSAPP_PHONE_NUMBER_ID - optional; unset means /whatsapp/webhook's GET
+#                        handshake always 403s and its POST handler accepts
+#                        unverified payloads (dev-only fallback -- set
+#                        WHATSAPP_APP_SECRET before pointing a real Meta
+#                        webhook at this). See README "WhatsApp".
 #
 # Note: written and reasoned through carefully, but never actually deployed
 # from this session -- the sandbox it was built in has no network path to
@@ -82,4 +90,12 @@ services:
       - key: STRIPE_PRICE_ID_TEAM
         sync: false
       - key: FRONTEND_URL
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_APP_SECRET
+        sync: false
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
         sync: false

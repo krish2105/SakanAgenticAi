@@ -41,7 +41,10 @@ export function OffPlanFunnelChart({ projects }: { projects: OffPlanFunnelEntry[
           </tbody>
         </table>
       ) : (
-        <div className="mt-4" style={{ height: sorted.length * 34 + 20 }}>
+        /* dir="ltr": see the comment in developer-leaderboard-chart.tsx --
+           Recharts isn't RTL-aware and its category-axis labels overlap
+           the bars under an inherited dir="rtl". */
+        <div className="mt-4" dir="ltr" style={{ height: sorted.length * 34 + 20 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={sorted} layout="vertical" margin={{ left: 8, right: 24, top: 4, bottom: 4 }}>
               <CartesianGrid stroke={colors.border} strokeDasharray="3 3" horizontal={false} />

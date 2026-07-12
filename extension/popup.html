@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Sakan AI</title>
+<link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <span class="title">Sakan AI</span>
+    <button id="settings-btn" title="Settings" aria-label="Settings">⚙</button>
+  </header>
+
+  <section id="login-view" hidden>
+    <p class="hint">Sign in to run a full deal check. Comps search works without an account.</p>
+    <form id="login-form">
+      <input type="email" id="login-email" placeholder="you@brokerage.ae" autocomplete="email" required />
+      <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required />
+      <button type="submit">Sign in</button>
+    </form>
+    <p id="login-error" class="error" hidden></p>
+  </section>
+
+  <section id="account-view" hidden>
+    <p class="hint">Signed in as <span id="account-email"></span>. <button id="logout-btn" class="link">Sign out</button></p>
+  </section>
+
+  <section id="comps-view">
+    <h2>Quick comps</h2>
+    <form id="comps-form">
+      <input type="text" id="comps-community" placeholder="Community (e.g. Dubai Marina)" />
+      <select id="comps-bedrooms">
+        <option value="">Any bedrooms</option>
+        <option value="0">Studio</option>
+        <option value="1">1BR</option>
+        <option value="2">2BR</option>
+        <option value="3">3BR</option>
+        <option value="4">4BR+</option>
+      </select>
+      <button type="submit">Search</button>
+    </form>
+    <div id="comps-results"></div>
+  </section>
+
+  <section id="deal-view">
+    <h2>Full deal check</h2>
+    <form id="deal-form">
+      <textarea id="deal-query" placeholder="e.g. 2BR apartment in Dubai Marina under 2.2M, off-plan compliance check" rows="2"></textarea>
+      <button type="submit">Run full check</button>
+    </form>
+    <p id="deal-status" class="hint" hidden></p>
+  </section>
+
+  <footer>
+    <span id="backend-url-label"></span>
+  </footer>
+
+  <script src="api.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

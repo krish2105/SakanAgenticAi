@@ -20,3 +20,4 @@ slowapi>=0.1.9
 pydantic[email]>=2.0
 redis[hiredis]>=5.0
 stripe>=10.0
+scikit-learn>=1.4

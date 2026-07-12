@@ -1,0 +1,19 @@
+#sakan-ai-fab {
+  all: initial;
+  position: fixed;
+  z-index: 2147483647;
+  bottom: 20px;
+  right: 20px;
+  font: 600 12px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  color: #0b1220;
+  background: #c9a227;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+#sakan-ai-fab:hover {
+  filter: brightness(1.08);
+}
