@@ -1,19 +1,25 @@
-# Render Blueprint for Sakan AI's backend + Postgres.
+# Render Blueprint for Sakan AI's backend.
 # Deploy: Render dashboard -> New -> Blueprint -> point at this repo.
 #
-# Qdrant is NOT self-hosted here on purpose: Render's free tier doesn't
-# support Private Services (needed for a non-public vector DB), and running
-# it as a public "web" service has port-binding quirks with third-party
-# Docker images that couldn't be verified from the sandbox this was built
-# in. Use Qdrant Cloud's free tier instead (cloud.qdrant.io) and point
-# QDRANT_URL/QDRANT_API_KEY at it -- see the README's deploy walkthrough.
+# Postgres is NOT provisioned by this blueprint on purpose: Render allows
+# only one free-tier Postgres per account, and that slot may already be used
+# by another project. Use a free external Postgres instead (Neon or
+# Supabase both have genuinely free tiers) and paste its connection string
+# into DATABASE_URL below -- see the README's deploy walkthrough.
 #
-# After the blueprint deploys, set these on the sakan-backend service
-# (all marked sync: false, so Render prompts for them rather than needing
-# values committed here):
-#   ANTHROPIC_API_KEY  - optional; every agent has a deterministic fallback
+# Qdrant is also external for the same free-tier reasoning: Render's free
+# tier has no Private Services (needed for a non-public vector DB), and a
+# public Docker-image web service for Qdrant has port-binding quirks that
+# couldn't be verified from the sandbox this was built in. Use Qdrant
+# Cloud's free tier (cloud.qdrant.io) instead.
+#
+# All four env vars below are marked sync: false, so Render prompts you to
+# fill them in on the sakan-backend service page rather than needing values
+# committed here:
+#   DATABASE_URL       - your Neon/Supabase Postgres connection string
 #   QDRANT_URL         - your Qdrant Cloud cluster URL
 #   QDRANT_API_KEY     - your Qdrant Cloud API key
+#   ANTHROPIC_API_KEY  - optional; every agent has a deterministic fallback
 #
 # Note: written and reasoned through carefully, but never actually deployed
 # from this session -- the sandbox it was built in has no network path to
@@ -30,18 +36,10 @@ services:
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: sakan-postgres
-          property: connectionString
+        sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: QDRANT_URL
         sync: false
       - key: QDRANT_API_KEY
         sync: false
-
-databases:
-  - name: sakan-postgres
-    plan: free
-    databaseName: sakan
-    user: sakan

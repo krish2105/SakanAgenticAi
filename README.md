@@ -41,16 +41,26 @@ still runs end-to-end — the Query Agent falls back to a default
 deterministic comp-median/state-assembled results (see "Status" below) — so
 you can exercise the full data path with zero API cost before wiring in a key.
 
-## Deploy to production (Render + Vercel + Qdrant Cloud)
+## Deploy to production (Render + Neon + Qdrant Cloud + Vercel)
 
-Per `ARCHITECTURE.md` Section 3: frontend → Vercel, backend + Postgres →
-Render. Qdrant runs on **Qdrant Cloud's free tier** rather than self-hosted
-on Render — Render's free tier has no Private Services (needed for a
-non-public vector DB), and a public Docker-image web service for Qdrant has
-port-binding behavior this session had no way to verify. Do these in order —
-each step needs a value produced by the one before it.
+Per `ARCHITECTURE.md` Section 3: frontend → Vercel, backend → Render. Postgres
+and Qdrant both run on external free tiers rather than Render-managed, to
+stay at $0: **Neon** for Postgres (Render allows only one free-tier Postgres
+per account, and that slot may already be spoken for by another project) and
+**Qdrant Cloud** for the vector DB (Render's free tier has no Private
+Services, which a non-public vector DB needs). Do these in order — each step
+needs a value produced by the one before it.
 
-### 1. Qdrant Cloud (~3 min)
+### 1. Neon (Postgres) — ~2 min
+
+1. Sign up at https://neon.tech (free tier: no card required as of this
+   writing — confirm current terms on their pricing page).
+2. Create a project. Neon gives you a **connection string** immediately,
+   something like `postgresql://user:password@ep-xxxx.neon.tech/dbname?sslmode=require`.
+3. Copy it. (The app normalizes `postgresql://` → `postgresql+psycopg2://`
+   automatically — paste Neon's string exactly as given, don't edit it.)
+
+### 2. Qdrant Cloud (vector DB) — ~3 min
 
 1. Sign up at https://cloud.qdrant.io (free tier: 1 GB cluster, no card
    required as of this writing — confirm current terms on their pricing page).
@@ -59,51 +69,50 @@ each step needs a value produced by the one before it.
 3. Create an **API key** for that cluster. Copy it now — Qdrant Cloud shows
    it once.
 
-### 2. Backend + Postgres on Render (~5 min)
+### 3. Backend on Render — ~5 min
 
 1. Push/merge this branch to whichever branch your Render deploy will track
    (Render Blueprints deploy from a specific branch — pick one and make sure
    it has `render.yaml` at the repo root).
 2. Render dashboard → **New** → **Blueprint** → connect this GitHub repo →
    select that branch. Render parses [`render.yaml`](./render.yaml) and shows
-   a plan: one **Web Service** (`sakan-backend`) and one **Postgres**
-   database (`sakan-postgres`).
-3. Click **Apply**. Render provisions Postgres first, then builds
-   `sakan-backend` from `backend/Dockerfile` (build context is the repo
-   root, so it can also `COPY regulations/` in — don't rename or move that
-   directory without updating the Dockerfile).
-4. The blueprint declares three env vars as `sync: false`, so Render will
-   prompt you to fill them in on the `sakan-backend` service page:
-   - `QDRANT_URL` → the Cluster URL from step 1
-   - `QDRANT_API_KEY` → the API key from step 1
-   - `ANTHROPIC_API_KEY` → optional (see the question below); leave blank to
-     run entirely on fallbacks
-5. `DATABASE_URL` is wired automatically (`fromDatabase` in the blueprint) —
-   don't set it manually.
-6. Watch the deploy log. On first boot, `backend/docker-entrypoint.sh` runs
-   `seed_db.py` (loads the synthetic demo dataset into Postgres) and
-   `ingest_regulations.py` (embeds the 12 regulatory docs into your Qdrant
-   Cloud cluster) before starting `uvicorn`. Both are best-effort — a failure
-   in either logs a warning and the API still starts — but check the log for
-   `Upserted 57 clauses into Qdrant` to confirm the RAG corpus actually
-   loaded; if that line is missing, the Compliance Agent will run in
-   "unable to verify" fallback mode until you re-trigger a deploy.
-7. Once live, hit `https://<your-service>.onrender.com/health` — expect
+   a plan: one **Web Service** (`sakan-backend`), free plan, no database
+   (Postgres is external now — see step 1).
+3. Before or after clicking **Apply**, fill in the four `sync: false` env
+   vars on the `sakan-backend` service page:
+   - `DATABASE_URL` → the Neon connection string from step 1
+   - `QDRANT_URL` → the Cluster URL from step 2
+   - `QDRANT_API_KEY` → the API key from step 2
+   - `ANTHROPIC_API_KEY` → optional; leave blank to run entirely on fallbacks
+4. Render builds `sakan-backend` from `backend/Dockerfile` (build context is
+   the repo root, so it can also `COPY regulations/` in — don't rename or
+   move that directory without updating the Dockerfile).
+5. Watch the deploy log. On first boot, `backend/docker-entrypoint.sh` runs
+   `seed_db.py` (loads the synthetic demo dataset into your Neon Postgres)
+   and `ingest_regulations.py` (embeds the 12 regulatory docs into your
+   Qdrant Cloud cluster) before starting `uvicorn`. Both are best-effort — a
+   failure in either logs a warning and the API still starts — but check the
+   log for `Upserted 57 clauses into Qdrant` to confirm the RAG corpus
+   actually loaded; if that line is missing, the Compliance Agent will run
+   in "unable to verify" fallback mode until you re-trigger a deploy.
+6. Once live, hit `https://<your-service>.onrender.com/health` — expect
    `{"status":"ok"}`. Then `https://<your-service>.onrender.com/market/ticker`
    should return real seeded transactions.
-8. **Copy this backend URL.** You need it for step 3.
+7. **Copy this backend URL.** You need it for step 4.
 
-Free-tier notes that are easy to mistake for bugs: the free Postgres instance
-expires after 90 days (Render emails you before that — upgrade or recreate);
-the free web service spins down after ~15 min idle and takes 30-60s to wake
-on the next request (the first Vercel-to-Render call after a quiet period
-will look "hung" — it isn't); free-tier RAM (512 MB) may be tight for
-`sentence-transformers`/`torch` during the regulations-ingest step on first
-boot — if step 6's log shows the ingest failing with an OOM-style error,
-re-run it manually against a bigger instance, or temporarily bump the plan
-for that one deploy.
+Notes that are easy to mistake for bugs: Render's *free* web service plan
+spins down after ~15 min idle and takes 30-60s to wake on the next request
+(the first Vercel-to-Render call after a quiet period will look "hung" — it
+isn't); free-tier RAM (512 MB) may be tight for `sentence-transformers`/
+`torch` during the regulations-ingest step on first boot — if step 5's log
+shows the ingest failing with an OOM-style error, re-run it manually
+(`python scripts/ingest_regulations.py --regulations-dir /regulations` from
+a Render shell) or temporarily bump the plan for that one deploy; Neon's free
+tier auto-suspends an idle database and takes a moment to wake, similar to
+Render's cold start — stack the two and a truly cold first request could take
+a while, which is expected, not a hang.
 
-### 3. Frontend on Vercel (~3 min)
+### 4. Frontend on Vercel (~3 min)
 
 1. Vercel dashboard → **Add New** → **Project** → import this GitHub repo.
 2. In the import screen's **Root Directory** field, set it to `frontend`
@@ -113,7 +122,7 @@ for that one deploy.
    commands as default ([`frontend/vercel.json`](./frontend/vercel.json)
    already pins them explicitly).
 3. Add an environment variable: `NEXT_PUBLIC_API_URL` = the Render backend
-   URL from step 2.8 (e.g. `https://sakan-backend.onrender.com`, **no
+   URL from step 3.7 (e.g. `https://sakan-backend.onrender.com`, **no
    trailing slash**).
 4. Deploy. Vercel builds and gives you a `https://<project>.vercel.app` URL.
 5. Open it, submit a query on the Command Deck, and confirm the Agent Trace
