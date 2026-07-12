@@ -8,8 +8,8 @@ DATABASE_URL = os.environ.get(
 )
 
 
-def get_engine(database_url: str = DATABASE_URL):
-    return create_engine(database_url, future=True)
+def get_engine(database_url: str | None = None):
+    return create_engine(database_url or os.environ.get("DATABASE_URL", DATABASE_URL), future=True)
 
 
 def get_session_factory(engine=None):
