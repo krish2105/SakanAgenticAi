@@ -149,7 +149,7 @@ def test_webhook_subscription_updated_upgrades_tier(seeded_sqlite_db, monkeypatc
     monkeypatch.setattr(billing_module.config, "STRIPE_PRICE_ID_PRO", "price_pro_fake")
 
     with TestClient(app) as client:
-        headers = _register(client, "webhook-user@example.com")
+        _register(client, "webhook-user@example.com")
 
         session_factory = get_session_factory()
         with session_factory() as session:
@@ -184,7 +184,7 @@ def test_webhook_subscription_deleted_downgrades_to_starter(seeded_sqlite_db, mo
     monkeypatch.setattr(billing_module.config, "STRIPE_WEBHOOK_SECRET", None)
 
     with TestClient(app) as client:
-        headers = _register(client, "cancel-user@example.com")
+        _register(client, "cancel-user@example.com")
 
         session_factory = get_session_factory()
         with session_factory() as session:

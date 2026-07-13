@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from urllib.parse import parse_qs, urlparse
 
-import pytest
 from fastapi.testclient import TestClient
 
 import app.routers.auth as auth_router

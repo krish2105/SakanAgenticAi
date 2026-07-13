@@ -1,0 +1,19 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+# Migrations are largely generated; the scripts are CLIs with their own style.
+extend-exclude = ["migrations/versions"]
+
+[tool.ruff.lint]
+# High-signal, low-noise: pyflakes (F -- unused imports/vars, undefined names,
+# real mistakes) plus the pycodestyle error classes that flag actual bugs
+# (E4 imports, E7 statement errors, E9 syntax/IO). Deliberately NOT the full
+# style firehose (import re-sorting, pyupgrade rewrites) -- the gate should
+# catch problems, not churn the whole tree. This is ruff's own default select.
+select = ["E4", "E7", "E9", "F"]
+ignore = ["E741"]  # ambiguous var names (l/O/I) -- a few exist in scripts, harmless
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]

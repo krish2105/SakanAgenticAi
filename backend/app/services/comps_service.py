@@ -117,7 +117,6 @@ def semantic_rerank(comps: list[dict], query: str, top_k: int = 8) -> list[dict]
 
     embedder = _get_embedder()
     if embedder is not None:
-        import numpy as np
 
         texts = [query] + [_comp_description(c) for c in comps]
         vectors = embedder.encode(texts, normalize_embeddings=True)

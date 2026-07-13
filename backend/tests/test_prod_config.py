@@ -11,7 +11,6 @@ import subprocess
 import sys
 import textwrap
 
-import pytest
 
 from app.routers import billing, whatsapp
 from app.routers.deals import client_ip_key

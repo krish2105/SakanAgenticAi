@@ -12,3 +12,7 @@ node_modules/
 # frontend
 frontend/node_modules/
 frontend/.next/
+
+# Coverage
+.coverage
+htmlcov/

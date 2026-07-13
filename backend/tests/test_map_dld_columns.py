@@ -3,7 +3,7 @@ from pathlib import Path
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
-from app.models import Base, Building, Transaction
+from app.models import Building, Transaction
 from scripts.map_dld_columns import run
 
 FIXTURE = Path(__file__).parent / "fixtures" / "dld_transactions_sample.csv"

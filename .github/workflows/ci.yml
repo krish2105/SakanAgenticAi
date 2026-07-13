@@ -37,14 +37,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run pytest (SQLite + in-memory Qdrant fallbacks, real Redis service above)
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Run pytest with coverage (SQLite + in-memory Qdrant fallbacks, real Redis service above)
         env:
           # Deliberately unset: agent tests exercise the deterministic
           # fallback paths, same as this repo's own sandboxed development.
           ANTHROPIC_API_KEY: ""
           REDIS_URL: "redis://localhost:6379/0"
           JWT_SECRET_KEY: "ci-test-secret-not-for-production"
-        run: pytest tests/ -v
+        run: pytest tests/ -v --cov=app --cov-report=term-missing --cov-fail-under=80
 
   frontend-build:
     runs-on: ubuntu-latest
@@ -67,6 +70,9 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Test (vitest)
+        run: npm test
 
       - name: Build
         run: npm run build
