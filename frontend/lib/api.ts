@@ -135,12 +135,25 @@ export async function fetchTicker(): Promise<Tick[]> {
   return safeGet<Tick[]>("/market/ticker", DEMO_TICKS);
 }
 
-export async function fetchMarketSnapshot(): Promise<{ community: string; avg_price_per_sqft: number }[]> {
-  return safeGet("/market/trends?view=summary", DEMO_SNAPSHOT);
+export async function fetchMarketSnapshot(
+  limit = 4
+): Promise<{ community: string; avg_price_per_sqft: number }[]> {
+  return safeGet(`/market/trends?view=summary&limit=${limit}`, DEMO_SNAPSHOT);
 }
 
 export async function fetchMarketTrends(): Promise<MarketTrendPoint[]> {
   return safeGet<MarketTrendPoint[]>("/market/trends?view=timeseries", DEMO_TRENDS);
+}
+
+/** Phase 14: per-community trend data + a comps sample, feeding the
+ * /guides/[community] SEO content pages -- real seeded data, never
+ * fabricated prose, matching the rest of this product's "every claim
+ * shows its work" posture. */
+export async function fetchCommunityTrend(community: string): Promise<MarketTrendPoint[]> {
+  return safeGet<MarketTrendPoint[]>(
+    `/market/trends?view=timeseries&community=${encodeURIComponent(community)}`,
+    []
+  );
 }
 
 export async function fetchDeveloperLeaderboard(): Promise<DeveloperLeaderboardEntry[]> {

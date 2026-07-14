@@ -35,6 +35,11 @@ export function SiteFooter() {
                   <T k="nav.analytics" />
                 </Link>
               </li>
+              <li>
+                <Link href="/guides" className="hover:text-text-primary">
+                  <T k="footer.guides" />
+                </Link>
+              </li>
             </ul>
           </div>
 

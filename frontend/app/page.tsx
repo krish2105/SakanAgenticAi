@@ -11,11 +11,24 @@ const STEPS = [
   { icon: ShieldCheck, titleKey: "home.step3Title", bodyKey: "home.step3Body" },
 ];
 
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Sakan AI",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  description:
+    "Agentic real-estate deal intelligence for Dubai: cited comps, defensible valuations, RERA compliance checks, and investor-ready memos.",
+  offers: { "@type": "Offer", price: "0", priceCurrency: "AED" },
+};
+
 export default async function Home() {
   const snapshot = await fetchMarketSnapshot();
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-16">
+      {/* JSON-LD, statically constructed above -- not user input. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
       <p className="font-mono text-xs uppercase tracking-widest text-brass">
         <T k="home.eyebrow" />
       </p>
