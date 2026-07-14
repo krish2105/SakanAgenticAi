@@ -11,7 +11,7 @@ from app.logging_config import configure_logging, request_id_ctx
 from app.middleware import RequestIDMiddleware
 from app.observability import check_readiness, init_sentry
 from app.ratelimit import limiter
-from app.routers import admin, auth, billing, comps, deals, market, partner_api, saved_comps, whatsapp, ws
+from app.routers import admin, alerts, auth, billing, comps, deals, market, partner_api, saved_comps, whatsapp, ws
 
 configure_logging()
 init_sentry()
@@ -60,6 +60,7 @@ app.include_router(billing.router)
 app.include_router(deals.router)
 app.include_router(comps.router)
 app.include_router(saved_comps.router)
+app.include_router(alerts.router)
 app.include_router(market.router)
 app.include_router(whatsapp.router)
 app.include_router(partner_api.router)

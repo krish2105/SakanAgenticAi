@@ -1,0 +1,52 @@
+name: Send saved-search digests
+
+# Runs backend/scripts/send_search_digests.py on a schedule -- Phase 25's
+# "saved-search / price alert" feature, delivered as email digests (see
+# app/models.py's SavedSearch docstring for why this is a digest, not a
+# strict "new listing" alert). Free: reuses the existing Resend integration
+# (backend/app/services/email.py) and this same scheduled-workflow pattern
+# as reingest-corpus.yml -- no new paid service.
+
+on:
+  schedule:
+    - cron: "0 7 * * *" # daily, 07:00 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report how many digests would be sent, send nothing"
+        type: boolean
+        default: false
+
+jobs:
+  send-digests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Send saved-search digests
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          EMAIL_PROVIDER: ${{ secrets.EMAIL_PROVIDER }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::warning::DATABASE_URL secret is not set -- skipping. Add it in repo Settings > Secrets and variables > Actions to enable scheduled digests."
+          elif [ "${{ inputs.dry_run }}" = "true" ]; then
+            python scripts/send_search_digests.py --dry-run
+          else
+            python scripts/send_search_digests.py
+          fi

@@ -15,6 +15,9 @@ import {
   fetchSavedComps,
   saveComp,
   unsaveComp,
+  fetchSavedSearches,
+  createSavedSearch,
+  deleteSavedSearch,
   fetchAdminStats,
   fetchAdminUsers,
   setAdminUserTier,
@@ -289,6 +292,54 @@ describe("saved comps / watchlist", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(unsaveComp("TXN-1", "access-1")).resolves.toBeUndefined();
+  });
+});
+
+describe("saved searches / alert digests", () => {
+  beforeEach(() => clearTokens());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("fetchSavedSearches GETs /alerts", async () => {
+    setTokens("access-1");
+    const fetchMock = vi.fn(async (url: string) => {
+      expect(url).toContain("/alerts");
+      return jsonResponse(200, [
+        { id: 1, community: "Dubai Marina", property_type: null, bedrooms: null, budget_min: null, budget_max: null, created_at: "2026-01-01T00:00:00", last_notified_at: null },
+      ]);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const searches = await fetchSavedSearches("access-1");
+    expect(searches).toHaveLength(1);
+    expect(searches[0].community).toBe("Dubai Marina");
+  });
+
+  it("createSavedSearch POSTs the filter", async () => {
+    setTokens("access-1");
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toContain("/alerts");
+      expect(init?.method).toBe("POST");
+      expect(JSON.parse(init?.body as string)).toEqual({ community: "Downtown Dubai" });
+      return jsonResponse(201, {
+        id: 2, community: "Downtown Dubai", property_type: null, bedrooms: null, budget_min: null, budget_max: null, created_at: "2026-01-01T00:00:00", last_notified_at: null,
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const created = await createSavedSearch({ community: "Downtown Dubai" }, "access-1");
+    expect(created.id).toBe(2);
+  });
+
+  it("deleteSavedSearch DELETEs by id", async () => {
+    setTokens("access-1");
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toContain("/alerts/2");
+      expect(init?.method).toBe("DELETE");
+      return { ok: false, status: 204, json: async () => ({}) } as Response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(deleteSavedSearch(2, "access-1")).resolves.toBeUndefined();
   });
 });
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { Download, BarChart3 } from "lucide-react";
+import { Download, BarChart3, BellPlus } from "lucide-react";
 import { CompsFilterBar, type CompsFilters } from "@/components/comps-filter-bar";
 import { ProvenanceBadge } from "@/components/comps-table";
 import { PriceDistributionChart } from "@/components/charts/price-distribution-chart";
@@ -11,7 +11,8 @@ import { SaveCompButton } from "@/components/save-comp-button";
 import { T } from "@/components/t";
 import { useAuth } from "@/components/auth-provider";
 import { useLocale } from "@/components/locale-provider";
-import { fetchComps, fetchSavedComps, saveComp, unsaveComp } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
+import { fetchComps, fetchSavedComps, saveComp, unsaveComp, createSavedSearch } from "@/lib/api";
 import { capture } from "@/lib/analytics";
 import { downloadCompsCsv } from "@/lib/csv-export";
 import { cn } from "@/lib/utils";
@@ -29,12 +30,14 @@ const CompsMap = dynamic(() => import("@/components/comps-map").then((m) => m.Co
 export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) {
   const { t } = useLocale();
   const { token } = useAuth();
+  const { toast } = useToast();
   const [filters, setFilters] = useState<CompsFilters>({ community: "", type: "", bedrooms: "" });
   const [comps, setComps] = useState<Comp[]>(initialComps);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [showDistribution, setShowDistribution] = useState(false);
+  const [savingSearch, setSavingSearch] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,6 +109,27 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
     });
   }
 
+  async function handleSaveSearch() {
+    if (!token) return;
+    setSavingSearch(true);
+    try {
+      await createSavedSearch(
+        {
+          community: filters.community || undefined,
+          property_type: filters.type || undefined,
+          bedrooms: filters.bedrooms ? Number(filters.bedrooms) : undefined,
+        },
+        token
+      );
+      capture("search_saved", { ...filters });
+      toast("Search saved — you'll get an email digest of matches.", "success");
+    } catch {
+      toast("Couldn't save this search. Try again.", "error");
+    } finally {
+      setSavingSearch(false);
+    }
+  }
+
   return (
     <div className="flex h-full flex-col gap-4 px-6 py-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -140,6 +164,12 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
             <Download size={14} />
             Export CSV
           </Button>
+          {token && (
+            <Button type="button" variant="outline" size="sm" disabled={savingSearch} onClick={handleSaveSearch}>
+              <BellPlus size={14} />
+              {savingSearch ? "Saving…" : "Save search"}
+            </Button>
+          )}
         </div>
       </div>
 

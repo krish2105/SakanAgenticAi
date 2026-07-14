@@ -286,3 +286,25 @@ class SavedComp(Base):
     owner_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
     transaction_id = Column(String(15), ForeignKey("transactions.transaction_id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class SavedSearch(Base):
+    """A saved comps filter that gets a periodic email digest (Phase 25).
+    Deliberately a *digest*, not a "new listing" alert: Transaction has no
+    insertion timestamp, only transaction_date (the real-world sale date),
+    so there's no honest way to tell "added since you last checked" apart
+    from "always matched but you hadn't seen it." scripts/send_search_digests.py
+    emails the current top matches on a schedule and stamps last_notified_at --
+    it never claims something is new that we can't actually prove is new."""
+
+    __tablename__ = "saved_searches"
+
+    saved_search_id = Column(Integer, primary_key=True, autoincrement=True)
+    owner_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    community = Column(String(100), nullable=True)
+    property_type = Column(String(20), nullable=True)
+    bedrooms = Column(Integer, nullable=True)
+    budget_min = Column(Numeric(12, 2), nullable=True)
+    budget_max = Column(Numeric(12, 2), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    last_notified_at = Column(DateTime, nullable=True)

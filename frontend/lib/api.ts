@@ -241,6 +241,48 @@ export async function unsaveComp(transactionId: string, token: string): Promise<
   if (!res.ok && res.status !== 204) throw new Error(await parseAuthError(res));
 }
 
+// --- Saved searches / alert digests (Phase 25) ---
+
+export interface SavedSearch {
+  id: number;
+  community: string | null;
+  property_type: string | null;
+  bedrooms: number | null;
+  budget_min: number | null;
+  budget_max: number | null;
+  created_at: string;
+  last_notified_at: string | null;
+}
+
+export interface SavedSearchInput {
+  community?: string;
+  property_type?: string;
+  bedrooms?: number;
+  budget_min?: number;
+  budget_max?: number;
+}
+
+export async function fetchSavedSearches(token: string): Promise<SavedSearch[]> {
+  return authedGet<SavedSearch[]>("/alerts", token);
+}
+
+export async function createSavedSearch(input: SavedSearchInput, token: string): Promise<SavedSearch> {
+  const res = await authedFetch(
+    "/alerts",
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) },
+    token
+  );
+  if (res.status === 401) throw new AuthRequiredError();
+  if (!res.ok) throw new Error(await parseAuthError(res));
+  return res.json();
+}
+
+export async function deleteSavedSearch(id: number, token: string): Promise<void> {
+  const res = await authedFetch(`/alerts/${id}`, { method: "DELETE" }, token);
+  if (res.status === 401) throw new AuthRequiredError();
+  if (!res.ok && res.status !== 204) throw new Error(await parseAuthError(res));
+}
+
 // --- Auth ---
 
 export interface AuthUser {
