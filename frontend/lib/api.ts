@@ -1,7 +1,13 @@
 import type { Comp, DealState, DealSummary, MarketTrendPoint, DeveloperLeaderboardEntry, OffPlanFunnelEntry, Tick } from "@/lib/types";
 import { DEMO_TICKS, DEMO_SNAPSHOT, DEMO_COMPS, DEMO_TRENDS, DEMO_LEADERBOARD, DEMO_FUNNEL } from "@/lib/demo-data";
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+/** Strips a trailing slash so a misconfigured NEXT_PUBLIC_API_URL (a very
+ * easy copy-paste mistake, e.g. "https://api.example.com/") can't turn every
+ * request into a double-slash path like ".../auth/login" -- FastAPI/Starlette
+ * 404s on that instead of matching the route, and the JSON body of that 404
+ * ({"detail":"Not Found"}) is indistinguishable from a real auth error once
+ * it reaches parseAuthError below. */
+export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 export const WS_BASE = API_BASE.replace(/^http/, "ws");
 
 export class AuthRequiredError extends Error {
@@ -221,7 +227,18 @@ export interface AuthUser {
   email_verified?: boolean;
 }
 
-async function parseAuthError(res: Response): Promise<string> {
+/** `routingNeverA404` is for endpoints that can never legitimately 404 for a
+ * real application reason (login/register/demo aren't scoped to a resource
+ * that might not exist) -- there, a bare 404 means the request didn't reach
+ * the route at all (wrong NEXT_PUBLIC_API_URL, a stale deploy, a proxy
+ * misrouting the path), and FastAPI's default 404 body ({"detail":"Not
+ * Found"}) would otherwise pass straight through and read exactly like a
+ * real credential error. Endpoints where a 404 IS meaningful (e.g. inviting
+ * an email with no account) must leave this off. */
+async function parseAuthError(res: Response, routingNeverA404 = false): Promise<string> {
+  if (routingNeverA404 && res.status === 404) {
+    return "Couldn't reach the sign-in service (unexpected 404). This usually means the app is misconfigured, not that your credentials are wrong.";
+  }
   try {
     const body = await res.json();
     if (typeof body.detail === "string") return body.detail;
@@ -248,7 +265,7 @@ export async function registerUser(
       turnstile_token: turnstileToken || undefined,
     }),
   });
-  if (!res.ok) throw new Error(await parseAuthError(res));
+  if (!res.ok) throw new Error(await parseAuthError(res, true));
   const data = await res.json();
   setTokens(data.access_token, data.refresh_token);
   return data.access_token as string;
@@ -260,7 +277,7 @@ export async function loginUser(email: string, password: string, turnstileToken?
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password, turnstile_token: turnstileToken || undefined }),
   });
-  if (!res.ok) throw new Error(await parseAuthError(res));
+  if (!res.ok) throw new Error(await parseAuthError(res, true));
   const data = await res.json();
   setTokens(data.access_token, data.refresh_token);
   return data.access_token as string;
@@ -271,7 +288,7 @@ export async function loginUser(email: string, password: string, turnstileToken?
  * email or password needed; every call gets its own full Starter-tier quota. */
 export async function startDemoSession(): Promise<string> {
   const res = await fetch(`${API_BASE}/auth/demo`, { method: "POST" });
-  if (!res.ok) throw new Error(await parseAuthError(res));
+  if (!res.ok) throw new Error(await parseAuthError(res, true));
   const data = await res.json();
   setTokens(data.access_token, data.refresh_token);
   return data.access_token as string;

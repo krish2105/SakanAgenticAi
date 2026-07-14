@@ -69,6 +69,16 @@ describe("loginUser", () => {
     expect(getAccessToken()).toBe("acc");
     expect(getRefreshToken()).toBe("ref");
   });
+
+  it("reports a 404 as a misconfiguration, not a credential error", async () => {
+    // A bare 404 from /auth/login never means "wrong password" -- the route
+    // always exists -- it means the request was misrouted (e.g. a trailing
+    // slash in NEXT_PUBLIC_API_URL producing a double-slash path). FastAPI's
+    // default 404 body ({"detail":"Not Found"}) must not surface verbatim,
+    // since it reads exactly like a real auth error to an end user.
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(404, { detail: "Not Found" })));
+    await expect(loginUser("a@b.com", "pw")).rejects.toThrow(/misconfigured/i);
+  });
 });
 
 describe("startDemoSession", () => {
@@ -343,5 +353,26 @@ describe("fetchReadiness", () => {
 
     const report = await fetchReadiness();
     expect(report).toEqual({ reachable: false, ready: false, checks: {} });
+  });
+});
+
+describe("API_BASE", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("strips a trailing slash so requests never end up with a double slash", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.com/");
+    vi.resetModules();
+    const { API_BASE } = await import("@/lib/api");
+    expect(API_BASE).toBe("https://api.example.com");
+  });
+
+  it("leaves a URL with no trailing slash unchanged", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.com");
+    vi.resetModules();
+    const { API_BASE } = await import("@/lib/api");
+    expect(API_BASE).toBe("https://api.example.com");
   });
 });
