@@ -9,8 +9,15 @@
   --border: 216 222 232;
   --text-primary: 16 24 40;
   --text-muted: 91 100 120;
-  --accent-brass: 166 130 30;
-  --accent-brass-dim: 140 108 20;
+  /* Darkened from the original 166 130 30 -- that value was 3.6:1 against
+     white/near-white surfaces (text-brass appears as body-size text in many
+     places: eyebrows, prices, links), failing WCAG AA's 4.5:1 for normal
+     text. This scaled-down value (same hue ratio) measures 4.8-5.3:1
+     against this theme's surfaces, verified with axe-core (Phase 21), not
+     just computed by hand. Dark theme's brass below was already fine
+     (~7:1) and is unchanged. */
+  --accent-brass: 133 104 24;
+  --accent-brass-dim: 112 86 16;
   --positive: 31 122 77;
   --negative: 168 67 43;
 }

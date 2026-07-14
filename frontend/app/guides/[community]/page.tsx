@@ -96,7 +96,7 @@ export default async function CommunityGuidePage({
             <CardTitle>Monthly average price / sqft</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Monthly price trend table">
               <table className="w-full min-w-[360px] text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-xs uppercase text-text-muted">

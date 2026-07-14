@@ -8,8 +8,14 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default: "border-brass/40 bg-brass/10 text-brass",
-        positive: "border-positive/40 bg-positive/10 text-positive",
-        negative: "border-negative/40 bg-negative/10 text-negative",
+        // Solid fill, not a tinted background -- a tinted positive/negative
+        // chip failed WCAG AA color-contrast in an axe-core audit (Phase 21)
+        // at this badge's 11px size. White text clears 4.5:1 against the
+        // light-theme token but not the brighter dark-theme one; dark ink
+        // does the reverse -- hence the dark: override, verified with
+        // axe-core in both themes, not just computed by hand.
+        positive: "border-transparent bg-positive text-white dark:text-[#0b1220]",
+        negative: "border-transparent bg-negative text-white dark:text-[#0b1220]",
         muted: "border-border bg-surface-raised text-text-muted",
       },
     },

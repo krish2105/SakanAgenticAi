@@ -67,7 +67,12 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
           <CompsMap comps={comps} selectedId={selectedId} onSelect={setSelectedId} />
         </div>
 
-        <div className="h-[420px] min-h-0 overflow-auto rounded-xl border border-border bg-surface lg:h-full">
+        <div
+          className="h-[420px] min-h-0 overflow-auto rounded-xl border border-border bg-surface lg:h-full"
+          tabIndex={0}
+          role="region"
+          aria-label="Comparable sales table"
+        >
           <table className="w-full min-w-[520px] border-collapse text-sm">
             <thead className="sticky top-0 bg-surface">
               <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-muted">

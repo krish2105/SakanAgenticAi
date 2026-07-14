@@ -53,7 +53,7 @@ export function CompsTable({ comps }: { comps: Comp[] }) {
             <T k="comps.noComps" />
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Comparable transactions table">
             <table className="w-full min-w-[560px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-muted">
