@@ -73,7 +73,36 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
           role="region"
           aria-label="Comparable sales table"
         >
-          <table className="w-full min-w-[520px] border-collapse text-sm">
+          {/* Below sm: a wide table just hides Beds/Price/Source off-screen
+              with no visible scroll affordance -- a stacked card per comp
+              keeps every field on-screen without horizontal scrolling. */}
+          <ul className="flex flex-col gap-2 p-2 sm:hidden">
+            {comps.map((c) => (
+              <li
+                key={c.transaction_id}
+                onClick={() => setSelectedId(c.transaction_id)}
+                className={cn(
+                  "cursor-pointer rounded-lg border border-border p-3 transition-colors",
+                  selectedId === c.transaction_id ? "bg-brass/10 border-brass/40" : "hover:bg-border/30"
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-body text-sm font-medium text-text-primary">{c.building}</p>
+                    <p className="truncate text-xs text-text-muted">{c.community}</p>
+                  </div>
+                  <ProvenanceBadge provenance={c.data_provenance} />
+                </div>
+                <div className="mt-2 flex items-center justify-between font-mono text-xs">
+                  <span className="text-brass">{c.transaction_id}</span>
+                  <span className="text-text-muted">{c.bedrooms} bed</span>
+                  <span className="text-text-primary">AED {c.price?.toLocaleString()}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <table className="hidden w-full min-w-[520px] border-collapse text-sm sm:table">
             <thead className="sticky top-0 bg-surface">
               <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-muted">
                 <th className="px-3 py-2 font-medium">Transaction</th>

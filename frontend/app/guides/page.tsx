@@ -35,9 +35,9 @@ export default async function GuidesPage() {
         {sorted.map((row) => (
           <Link key={row.community} href={`/guides/${communityToSlug(row.community)}`}>
             <Card className="transition-colors hover:border-brass/50">
-              <CardContent className="flex items-center justify-between p-4">
+              <CardContent className="flex items-start justify-between gap-3 p-4">
                 <span className="font-medium text-text-primary">{row.community}</span>
-                <span className="font-mono text-sm text-brass">
+                <span className="shrink-0 whitespace-nowrap font-mono text-sm text-brass">
                   AED {Math.round(row.avg_price_per_sqft).toLocaleString()}/sqft
                 </span>
               </CardContent>
@@ -55,9 +55,9 @@ export default async function GuidesPage() {
             {sortedTypes.map((row) => (
               <Link key={row.property_type} href={`/guides/type/${propertyTypeToSlug(row.property_type)}`}>
                 <Card className="transition-colors hover:border-brass/50">
-                  <CardContent className="flex items-center justify-between p-4">
+                  <CardContent className="flex items-start justify-between gap-3 p-4">
                     <span className="font-medium text-text-primary">{row.property_type}</span>
-                    <span className="font-mono text-sm text-brass">
+                    <span className="shrink-0 whitespace-nowrap font-mono text-sm text-brass">
                       AED {Math.round(row.avg_price_per_sqft).toLocaleString()}/sqft
                     </span>
                   </CardContent>

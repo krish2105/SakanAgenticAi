@@ -53,7 +53,32 @@ export function CompsTable({ comps }: { comps: Comp[] }) {
             <T k="comps.noComps" />
           </p>
         ) : (
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Comparable transactions table">
+          <>
+            {/* Below sm: this table has 7 columns -- a horizontal-scroll
+                table hides most of them off-screen with no visible
+                affordance. A stacked card per comp keeps every field
+                on-screen instead. */}
+            <ul className="flex flex-col gap-2 sm:hidden">
+              {comps.map((c) => (
+                <li key={c.transaction_id} className="rounded-lg border border-border p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 truncate font-body text-sm font-medium text-text-primary">{c.building}</p>
+                    <ProvenanceBadge provenance={c.data_provenance} />
+                  </div>
+                  <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs">
+                    <span className="text-brass">{c.transaction_id}</span>
+                    <span className="text-text-muted text-right">{c.date}</span>
+                    <span className="text-text-muted">{c.bedrooms} bed</span>
+                    <span className="text-text-primary text-right">AED {c.price?.toLocaleString()}</span>
+                    <span className="text-text-muted col-span-2 text-right">
+                      {c.price_per_sqft?.toLocaleString()} AED/sqft
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+          <div className="hidden overflow-x-auto sm:block" tabIndex={0} role="region" aria-label="Comparable transactions table">
             <table className="w-full min-w-[560px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-muted">
@@ -97,6 +122,7 @@ export function CompsTable({ comps }: { comps: Comp[] }) {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </CardContent>
     </Card>
