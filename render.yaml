@@ -39,6 +39,14 @@
 #                        fanning out correctly the moment you scale beyond
 #                        one. A free Upstash Redis instance is the usual
 #                        pairing if you need it before then.
+#   EMAIL_PROVIDER     - optional; defaults to "console" (logs the reset/
+#                        verify link instead of emailing it -- fine for a
+#                        demo, useless for real users). Set to "resend" +
+#                        RESEND_API_KEY for a free real option (3,000
+#                        emails/month, no card -- resend.com/signup).
+#   RESEND_API_KEY,
+#   EMAIL_FROM         - required if EMAIL_PROVIDER=resend/smtp; see README
+#                        "Auth" for the SMTP alternative env vars.
 #   STRIPE_SECRET_KEY,
 #   STRIPE_WEBHOOK_SECRET,
 #   STRIPE_PRICE_ID_PRO,
@@ -98,6 +106,12 @@ services:
       - key: CORS_ORIGINS
         sync: false
       - key: REDIS_URL
+        sync: false
+      - key: EMAIL_PROVIDER
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
         sync: false
       - key: STRIPE_SECRET_KEY
         sync: false
