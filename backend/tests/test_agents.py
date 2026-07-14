@@ -57,7 +57,11 @@ def test_query_agent_falls_back_on_llm_error(monkeypatch):
     result = query_agent_module.query_agent_node(state)
 
     assert result.query_type == "comps_search"
-    assert result.agent_trace[-1]["status"] == "error"
+    # An LLM-unavailable fallback is a successful, documented degraded path
+    # (matching valuation/compliance/memo's own fallback tracing) -- not a
+    # pipeline error, so the UI shouldn't flag it as one.
+    assert result.agent_trace[-1]["status"] == "done"
+    assert "llm fallback" in result.agent_trace[-1]["detail"]
 
 
 def test_comps_agent_hits_seeded_db(seeded_sqlite_db):

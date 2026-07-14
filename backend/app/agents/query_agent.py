@@ -128,5 +128,5 @@ def query_agent_node(state: DealState) -> DealState:
         state.community = parsed["community"]
         state.budget_min = parsed["budget_min"]
         state.budget_max = parsed["budget_max"]
-        state.trace("query", "error", detail=f"llm fallback: {exc}; heuristic query_type={state.query_type}")
+        state.trace("query", "done", detail=f"llm fallback: {exc}; heuristic query_type={state.query_type}")
     return state
