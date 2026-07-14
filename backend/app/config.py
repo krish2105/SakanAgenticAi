@@ -88,6 +88,14 @@ DATA_SOURCE = os.environ.get("DATA_SOURCE", "synthetic")
 LICENSED_DATA_FEED_URL = os.environ.get("LICENSED_DATA_FEED_URL")
 LICENSED_DATA_FEED_API_KEY = os.environ.get("LICENSED_DATA_FEED_API_KEY")
 
+# Dubai Pulse's official open-data API (Phase 12b) -- free, no partnership
+# needed, just a registered account (dubaipulse.gov.ae -> request the
+# "Transactions" dataset -> API Key/Secret arrive by email). Distinct from
+# LICENSED_DATA_FEED_*: this is the government's own public dataset, not a
+# paid/exclusive feed. See scripts/ingest_dld_open_api.py.
+DLD_OPEN_DATA_API_KEY = os.environ.get("DLD_OPEN_DATA_API_KEY")
+DLD_OPEN_DATA_API_SECRET = os.environ.get("DLD_OPEN_DATA_API_SECRET")
+
 def _validate_production_config() -> None:
     """When SAKAN_ENV=production, refuse to boot with a webhook that's enabled
     but unverifiable. Both Stripe and WhatsApp webhooks fall back to accepting

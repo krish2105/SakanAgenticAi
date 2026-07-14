@@ -12,7 +12,7 @@ export interface Tick {
   type: TickType;
 }
 
-export type DataProvenance = "synthetic" | "dld_kaggle" | "licensed_partner";
+export type DataProvenance = "synthetic" | "dld_kaggle" | "dld_open_free" | "licensed_partner";
 
 export interface Comp {
   transaction_id: string;

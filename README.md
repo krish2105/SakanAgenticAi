@@ -683,7 +683,9 @@ this is the technical scaffolding for when one does, per the MVP roadmap's
 risk #1 ("A valuation is only as defensible as its comps... this needs a
 real answer before anything else matters").
 [`backend/app/services/data_source.py`](./backend/app/services/data_source.py)
-defines a `DataSourceProvider` interface with three implementations:
+defines a `DataSourceProvider` interface with three implementations, plus a
+fourth loading path (`scripts/ingest_dld_open_api.py`) that doesn't go
+through the interface directly (see below):
 
 - `SyntheticDataSource` — this repo's default, wraps the committed seed CSVs.
   Not used by `seed_db.py`'s default path (see below) to avoid a provenance-
@@ -706,11 +708,33 @@ defines a `DataSourceProvider` interface with three implementations:
   **Never called against a real feed** — no such feed exists, so its
   HTTP-call shape is covered by a monkeypatched test, not a live integration.
 
+A fourth, free path exists alongside these:
+[`backend/scripts/ingest_dld_open_api.py`](./backend/scripts/ingest_dld_open_api.py)
+pulls directly from **Dubai Pulse's own official open-data API**
+(dubaipulse.gov.ae) — the government's public dataset, no licensed
+partnership needed, just a free registered account (an API Key + Secret
+arrive by email once you request the "Transactions" dataset grant). Tagged
+`dld_open_free`, distinct from `dld_kaggle`, because "we called DLD's own
+API" is a stronger provenance claim than "we downloaded a third-party CSV
+mirror of the same dataset." It reuses `map_dld_columns.py`'s
+column-resolution and cleaning pipeline (same filtering, same schema)
+instead of duplicating it, rather than going through `DataSourceProvider`
+directly — same reasoning as `map_dld_columns.py` itself bypassing that
+abstraction (see `data_source.py`'s own comments on why load-time ETL and
+query-time reads are different concerns). **Not verified against a live
+Dubai Pulse account** — this sandbox has no network path to
+`api.dubaipulse.gov.ae` to test against, so it's built from Dubai Pulse's
+published OAuth2/API documentation and covered by a fully mocked test, the
+same honesty posture as `LicensedFeedDataSource` above. Run `--dry-run`
+first against a real account and check the logged column mapping before
+trusting it in production.
+
 Every `transactions` row carries a `data_provenance` column
-(`synthetic` / `dld_kaggle` / `licensed_partner`) so any consumer can tell
-which kind of number it's looking at — set automatically by `seed_db.py`'s
-`--provenance` flag (default path) or `--dld-mapped-csv`/`--licensed-feed`
-(via `DataSourceProvider`), and hardcoded in `map_dld_columns.py`'s direct
+(`synthetic` / `dld_kaggle` / `dld_open_free` / `licensed_partner`) so any
+consumer can tell which kind of number it's looking at — set automatically
+by `seed_db.py`'s `--provenance` flag (default path) or
+`--dld-mapped-csv`/`--licensed-feed` (via `DataSourceProvider`), and
+hardcoded in `map_dld_columns.py`'s and `ingest_dld_open_api.py`'s direct
 DB writes. Alembic (see "Deploying to Render") owns bringing an existing
 database's schema up to date now — the one-off `migrate_add_data_provenance.py`
 script this section used to reference was retired into the Alembic baseline

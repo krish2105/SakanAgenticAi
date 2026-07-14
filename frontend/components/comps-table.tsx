@@ -15,6 +15,13 @@ export function ProvenanceBadge({ provenance }: { provenance?: string }) {
       </Badge>
     );
   }
+  if (provenance === "dld_open_free") {
+    return (
+      <Badge variant="positive">
+        <T k="comps.provenanceDldOpenFree" />
+      </Badge>
+    );
+  }
   if (provenance === "dld_kaggle") {
     return (
       <Badge variant="default">

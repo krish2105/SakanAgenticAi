@@ -156,7 +156,9 @@ def map_registration_type(reg_type: str | None) -> tuple[str, str]:
     return "Title Deed", "Sale"
 
 
-def clean_chunk(chunk: pd.DataFrame, colmap: dict[str, str], stats: LoadStats) -> pd.DataFrame:
+def clean_chunk(
+    chunk: pd.DataFrame, colmap: dict[str, str], stats: LoadStats, provenance: str = "dld_kaggle"
+) -> pd.DataFrame:
     df = chunk.rename(columns={raw: canonical for canonical, raw in colmap.items()})
     stats.rows_read += len(df)
 
@@ -246,11 +248,15 @@ def clean_chunk(chunk: pd.DataFrame, colmap: dict[str, str], stats: LoadStats) -
 
     df["buyer_type"] = None  # not present at row level in the DLD open dataset
     # Provenance (Phase D: "full DLD or portal data partnership"): this
-    # adapter reads a Kaggle mirror of DLD's own open dataset, which is
-    # real transaction data but not a licensed partnership feed -- tagged
-    # distinctly from both "synthetic" and a future "licensed_partner"
-    # source so a consumer can tell which kind of number it's looking at.
-    df["data_provenance"] = "dld_kaggle"
+    # adapter's default caller (this file's own CLI) reads a Kaggle mirror
+    # of DLD's own open dataset, real transaction data but not a licensed
+    # partnership feed, tagged "dld_kaggle". scripts/ingest_dld_open_api.py
+    # (Phase 12b) reuses this same cleaning pipeline for rows fetched
+    # directly from Dubai Pulse's official API instead, passing
+    # provenance="dld_open_free" -- same underlying open dataset, distinct
+    # tag because "we called the government's own API" is a stronger
+    # provenance claim than "we downloaded a third-party CSV mirror of it".
+    df["data_provenance"] = provenance
 
     return df[
         [
@@ -317,6 +323,7 @@ def run(
     chunksize: int,
     dry_run: bool,
     row_limit: int | None,
+    provenance: str = "dld_kaggle",
 ) -> LoadStats:
     stats = LoadStats()
 
@@ -350,7 +357,7 @@ def run(
         if row_limit is not None:
             chunk = chunk.iloc[: max(0, row_limit - rows_processed)]
 
-        cleaned = clean_chunk(chunk, colmap, stats)
+        cleaned = clean_chunk(chunk, colmap, stats, provenance)
         rows_processed += len(chunk)
         stats.rows_loaded += len(cleaned)
 
