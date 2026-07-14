@@ -11,21 +11,20 @@ python scripts/run_migrations.py
 echo "Seeding synthetic demo dataset (idempotent, safe to re-run)..."
 python scripts/seed_db.py --seed-dir seed_data || echo "seed_db.py failed -- continuing without re-seeding."
 
-if [ "${RUN_REGULATIONS_INGEST_ON_BOOT:-false}" = "true" ]; then
+# Safe to run on boot -- even the smallest free tier -- whenever GEMINI_API_KEY
+# is set: app/embeddings.py's GeminiEmbedder calls Google's free embedding API
+# over the network instead of loading sentence-transformers/torch in-process,
+# so there's no local model weights and no RAM spike. Without a Gemini key,
+# ingestion falls back to the local model, which commonly exceeds a 512MB
+# free-tier container and gets the *entire container* OOM-killed by the
+# platform from outside (not a graceful failure this script's `|| echo ...`
+# can catch) -- so that path stays opt-in only via RUN_REGULATIONS_INGEST_ON_BOOT.
+if [ -n "${GEMINI_API_KEY:-}" ] || [ "${RUN_REGULATIONS_INGEST_ON_BOOT:-false}" = "true" ]; then
   echo "Ingesting regulatory corpus into Qdrant (best-effort)..."
   python scripts/ingest_regulations.py --regulations-dir /regulations --qdrant-url "${QDRANT_URL:-http://localhost:6333}" \
     || echo "Regulations ingestion failed or Qdrant unreachable -- Compliance Agent will fall back to 'unable to verify' until this succeeds."
 else
-  # Off by default: sentence-transformers/torch during this step commonly
-  # exceeds a 512MB free-tier container, and that's an OOM kill of the
-  # *entire container* from outside (the OS/orchestrator, not this script),
-  # which the `|| echo ...` fallback above can't catch -- it takes the
-  # whole deploy down instead of just degrading the Compliance Agent to
-  # its documented "unable to verify" fallback. Run the ingest once from
-  # somewhere with more RAM instead: a local machine, or
-  # .github/workflows/reingest-corpus.yml's workflow_dispatch trigger
-  # (GitHub-hosted runners have several GB of RAM, no OOM risk there).
-  echo "Skipping regulations ingest on boot (set RUN_REGULATIONS_INGEST_ON_BOOT=true to enable -- only safe on a plan with enough RAM for sentence-transformers/torch, not the smallest free tier)."
+  echo "Skipping regulations ingest on boot -- no GEMINI_API_KEY (free, no local RAM cost -- would auto-enable this) and RUN_REGULATIONS_INGEST_ON_BOOT unset (would force the RAM-heavy local-model path)."
   echo "Run it once separately instead: locally with 'python scripts/ingest_regulations.py --regulations-dir ../regulations --qdrant-url \$QDRANT_URL --qdrant-api-key \$QDRANT_API_KEY', or via this repo's 'Re-ingest regulatory corpus' GitHub Actions workflow."
 fi
 

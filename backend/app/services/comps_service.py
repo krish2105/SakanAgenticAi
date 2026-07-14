@@ -8,7 +8,6 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.config import ENABLE_SEMANTIC_EMBEDDINGS
 from app.models import Building, Transaction
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
@@ -17,24 +16,21 @@ _embedder_load_failed = False
 
 
 def _get_embedder():
-    """Returns the shared sentence-transformers singleton (same instance the
-    Compliance Agent's retrieval.py uses -- see ingest_regulations.get_embedder,
-    cached via lru_cache). Two independently-cached copies of the same ~90MB
-    model plus its torch backend were enough to OOM a 512MB free-tier
-    container the moment a single pipeline run touched both this agent and
-    the Compliance Agent (comps_search-only queries never hit that path,
-    which is why this went unnoticed until query_agent's routing fix let
-    valuation/compliance/full_memo queries actually reach both). Even a
-    single instance turned out to be enough on its own -- see
-    ENABLE_SEMANTIC_EMBEDDINGS in app/config.py -- so this is off by
-    default; returns None (rather than raising) whenever it can't or
-    shouldn't load, so semantic_rerank degrades to a heuristic instead of
-    crashing the pipeline."""
+    """Returns the shared embedder singleton (same instance the Compliance
+    Agent's retrieval.py uses -- see app/embeddings.get_embedder, cached via
+    lru_cache). When GEMINI_API_KEY is set this is a remote API call with no
+    local RAM cost; when it isn't, it's the local sentence-transformers
+    model, gated by ENABLE_SEMANTIC_EMBEDDINGS -- two independently-cached
+    copies of that ~90MB model plus its torch backend were enough to OOM a
+    512MB free-tier container the moment a single pipeline run touched both
+    this agent and the Compliance Agent. Returns None (rather than raising)
+    whenever no provider is available, so semantic_rerank degrades to a
+    heuristic instead of crashing the pipeline."""
     global _embedder_load_failed
-    if not ENABLE_SEMANTIC_EMBEDDINGS or _embedder_load_failed:
+    if _embedder_load_failed:
         return None
     try:
-        from ingest_regulations import get_embedder
+        from app.embeddings import get_embedder
 
         return get_embedder()
     except Exception:  # noqa: BLE001
@@ -124,7 +120,10 @@ def semantic_rerank(comps: list[dict], query: str, top_k: int = 8) -> list[dict]
     if embedder is not None:
 
         texts = [query] + [_comp_description(c) for c in comps]
-        vectors = embedder.encode(texts, normalize_embeddings=True)
+        # SEMANTIC_SIMILARITY rather than RETRIEVAL_QUERY/DOCUMENT: the query
+        # and comp descriptions are being compared symmetrically here (one
+        # batched encode call), not searched as a corpus.
+        vectors = embedder.encode(texts, normalize_embeddings=True, task_type="SEMANTIC_SIMILARITY")
         query_vec, comp_vecs = vectors[0], vectors[1:]
         scores = comp_vecs @ query_vec
         ranked = sorted(zip(comps, scores), key=lambda cs: cs[1], reverse=True)

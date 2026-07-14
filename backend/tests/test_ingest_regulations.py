@@ -26,7 +26,8 @@ class FakeEmbedder:
     query-similarity logic are still exercised end-to-end.
     """
 
-    def encode(self, texts, show_progress_bar=False, normalize_embeddings=True):
+    def encode(self, texts, show_progress_bar=False, normalize_embeddings=True, task_type="RETRIEVAL_DOCUMENT"):
+        del task_type  # deterministic fake ignores it, same as the real local embedder
         vectors = []
         for text in texts:
             seed = int(hashlib.sha256(text.encode()).hexdigest(), 16) % (2**32)

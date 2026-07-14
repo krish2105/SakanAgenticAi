@@ -31,8 +31,13 @@
 #                        Wins over GEMINI_API_KEY if both are set.
 #   GEMINI_API_KEY     - optional, free tier; Google AI Studio
 #                        (aistudio.google.com/apikey, no card) gives real LLM
-#                        reasoning at zero cost if ANTHROPIC_API_KEY is unset.
-#                        See app/llm.py.
+#                        reasoning at zero cost if ANTHROPIC_API_KEY is unset
+#                        (see app/llm.py), AND auto-enables real semantic RAG
+#                        for the Compliance Agent at zero local RAM cost (see
+#                        app/embeddings.py) -- the same key unlocks both.
+#                        RUN_REGULATIONS_INGEST_ON_BOOT is not needed once
+#                        this is set; docker-entrypoint.sh ingests the corpus
+#                        on boot automatically whenever GEMINI_API_KEY is present.
 #   REDIS_URL          - optional; unset means the WS pub/sub AND the
 #                        market/comps response cache (app/cache.py) both fall
 #                        back to in-memory, which is fine for a single Render

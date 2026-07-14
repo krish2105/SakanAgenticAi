@@ -7,8 +7,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
-from ingest_regulations import COLLECTION_NAME, build_qdrant_client, get_embedder  # noqa: E402
+from ingest_regulations import COLLECTION_NAME, build_qdrant_client  # noqa: E402
 from app.config import ENABLE_SEMANTIC_EMBEDDINGS, QDRANT_API_KEY, QDRANT_URL  # noqa: E402
+from app.embeddings import get_embedder  # noqa: E402
 
 
 def compose_retrieval_query(
@@ -37,17 +38,19 @@ def retrieve_clauses(
     """
     if not ENABLE_SEMANTIC_EMBEDDINGS and embedder is None:
         raise RuntimeError(
-            "ENABLE_SEMANTIC_EMBEDDINGS is off (default on small/free-tier plans -- "
-            "sentence-transformers/torch alone can exceed 512MB). compliance_agent_node "
-            "catches this and falls back to its documented 'unable to verify' response."
+            "ENABLE_SEMANTIC_EMBEDDINGS is off -- set GEMINI_API_KEY (free, no local RAM "
+            "cost -- see app/embeddings.py) or ENABLE_SEMANTIC_EMBEDDINGS=true on a host "
+            "with RAM to spare for the local model. compliance_agent_node catches this and "
+            "falls back to its documented 'unable to verify' response."
         )
 
     client = client or build_qdrant_client(QDRANT_URL, api_key=QDRANT_API_KEY)
     embedder = embedder or get_embedder()
+    collection_name = getattr(embedder, "collection_name", COLLECTION_NAME)
 
-    vector = embedder.encode([query_text], normalize_embeddings=True)[0]
+    vector = embedder.encode([query_text], normalize_embeddings=True, task_type="RETRIEVAL_QUERY")[0]
     results = client.query_points(
-        collection_name=COLLECTION_NAME, query=vector.tolist(), limit=top_k
+        collection_name=collection_name, query=vector.tolist(), limit=top_k
     ).points
 
     return [

@@ -47,6 +47,13 @@ jobs:
         env:
           QDRANT_URL: ${{ secrets.QDRANT_URL }}
           QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+          # Must match whichever embedder the live backend is using (see
+          # app/embeddings.py) -- Gemini and the local model write to
+          # different Qdrant collections, so a mismatch here would make
+          # this workflow silently re-ingest into a collection nothing
+          # reads from. Add this as a repo secret if GEMINI_API_KEY is set
+          # on the Render service.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             python scripts/ingest_regulations.py --regulations-dir ../regulations --dry-run

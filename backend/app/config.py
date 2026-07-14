@@ -131,14 +131,23 @@ if IS_PRODUCTION:
     _validate_production_config()
 
 
-# Off by default: sentence-transformers + its torch backend is enough on its
-# own (a single resident instance, not even counting duplicates) to push a
-# 512MB free-tier container over its memory limit -- observed as repeated
-# "Ran out of memory" instance failures on Render's free plan even after
-# fixing duplicate model loads. Both call sites (comps_service.semantic_rerank,
-# compliance_agent's retrieve_clauses) already have documented, honest
-# degraded-mode fallbacks (heuristic re-rank; "unable to verify — recommend
-# manual RERA check") for exactly this case, so skipping the model entirely
-# by default is safer than intermittently losing whole pipeline runs to OOM.
-# Set to "true" on a plan with enough RAM to actually use semantic search.
-ENABLE_SEMANTIC_EMBEDDINGS = os.environ.get("ENABLE_SEMANTIC_EMBEDDINGS", "false").lower() == "true"
+# Master switch for semantic RAG (Compliance Agent citation retrieval +
+# comps re-ranking). Historically off by default because the local
+# sentence-transformers/torch backend alone is enough to push a 512MB
+# free-tier container over its memory limit -- observed as repeated "Ran out
+# of memory" instance failures on Render's free plan. That constraint no
+# longer applies once GEMINI_API_KEY is set: app/embeddings.py's
+# GeminiEmbedder calls Google's free embedding API over the network, with no
+# local model weights and no RAM cost, so there's no reason to leave
+# semantic RAG off in that case. Default therefore follows GEMINI_API_KEY;
+# an explicit ENABLE_SEMANTIC_EMBEDDINGS=true/false always overrides it (e.g.
+# to force the local model, or to disable semantic RAG even with a Gemini
+# key on hand). Both call sites (comps_service.semantic_rerank,
+# compliance_agent's retrieve_clauses) have documented, honest degraded-mode
+# fallbacks (heuristic re-rank; "unable to verify — recommend manual RERA
+# check") for whenever no provider is available.
+_semantic_embeddings_raw = os.environ.get("ENABLE_SEMANTIC_EMBEDDINGS")
+if _semantic_embeddings_raw is None:
+    ENABLE_SEMANTIC_EMBEDDINGS = bool(GEMINI_API_KEY)
+else:
+    ENABLE_SEMANTIC_EMBEDDINGS = _semantic_embeddings_raw.strip().lower() == "true"

@@ -139,32 +139,43 @@ needs a value produced by the one before it.
    should return real seeded transactions.
 7. **Copy this backend URL.** You need it for step 4.
 
-**Loading the compliance corpus (a separate step, by design):** `ingest_regulations.py`
-loads `sentence-transformers`/PyTorch to embed the 12 regulatory docs, which
-reliably exceeds Render's free-tier 512MB and gets the *entire container*
-OOM-killed by the platform — not a graceful per-step failure the entrypoint
-script's own error handling can catch, since the OS kills the whole process
-tree from outside. Discovered by an actual failed deploy on this exact free
-tier, not reasoned through in the abstract: the deploy log showed only
-`Deploying...` / `Setting WEB_CONCURRENCY=1`, then Render's Events tab
-reported `Ran out of memory (used over 512MB) while running your code`,
-with no chance for the "ingestion failed, continuing" fallback message to
-ever print. Two free ways to actually load it, neither needs a paid Render
-plan:
-- **Recommended:** add `QDRANT_URL`/`QDRANT_API_KEY` as repo secrets
-  (Settings → Secrets and variables → Actions), then manually trigger
-  [`.github/workflows/reingest-corpus.yml`](./.github/workflows/reingest-corpus.yml)
-  (Actions tab → that workflow → "Run workflow") — GitHub-hosted runners have
+**Loading the compliance corpus:** if `GEMINI_API_KEY` is set (see step 3's
+env vars), this is automatic — `docker-entrypoint.sh` runs
+`ingest_regulations.py` on every boot, and it calls Google's free
+`gemini-embedding-001` API over the network instead of loading a local
+model, so it has no RAM cost and works fine on the smallest free tier. Skip
+straight to "Once live" below.
+
+**Without a Gemini key**, ingestion falls back to a local
+`sentence-transformers`/PyTorch model, which reliably exceeds Render's
+free-tier 512MB and gets the *entire container* OOM-killed by the platform —
+not a graceful per-step failure the entrypoint script's own error handling
+can catch, since the OS kills the whole process tree from outside. Discovered
+by an actual failed deploy on this exact free tier, not reasoned through in
+the abstract: the deploy log showed only `Deploying...` / `Setting
+WEB_CONCURRENCY=1`, then Render's Events tab reported `Ran out of memory
+(used over 512MB) while running your code`, with no chance for the
+"ingestion failed, continuing" fallback message to ever print. This path is
+therefore off by default (`RUN_REGULATIONS_INGEST_ON_BOOT=false`); two free
+ways to load the corpus anyway, neither needs a paid Render plan:
+- **Recommended:** add `QDRANT_URL`/`QDRANT_API_KEY` (and `GEMINI_API_KEY`,
+  if you have one — see the note in
+  [`reingest-corpus.yml`](./.github/workflows/reingest-corpus.yml)) as repo
+  secrets (Settings → Secrets and variables → Actions), then manually trigger
+  that workflow (Actions tab → "Run workflow") — GitHub-hosted runners have
   several GB of RAM, no OOM risk, and this workflow already exists for the
   weekly scheduled re-sync.
 - Or run it from your own machine: `cd backend && pip install -r
   requirements.txt && python scripts/ingest_regulations.py --regulations-dir
   ../regulations --qdrant-url <your Qdrant Cloud URL> --qdrant-api-key <your key>`.
 
-Until one of those runs at least once, the Compliance Agent responds in its
-documented "unable to verify — recommend manual RERA check" fallback mode,
-which is a real, intended state (not a crash) — the rest of the app
-(comps, valuation, memo) works normally in the meantime.
+Until the corpus has been ingested at least once with the *same* embedder
+the live backend uses (Gemini and the local model write to different Qdrant
+collections — see `app/embeddings.py` — so a Gemini-backed backend needs a
+Gemini-backed ingest, not a leftover local-model one), the Compliance Agent
+responds in its documented "unable to verify — recommend manual RERA check"
+fallback mode, which is a real, intended state (not a crash) — the rest of
+the app (comps, valuation, memo) works normally in the meantime.
 
 Other notes that are easy to mistake for bugs: Render's *free* web service
 plan spins down after ~15 min idle and takes 30-60s to wake on the next
@@ -207,17 +218,22 @@ a while, which is expected, not a hang.
 - **CORS errors in the browser console**: shouldn't happen — `app/main.py`
   sets `allow_origins=["*"]` for this demo's scope — but if you've tightened
   that for your own deployment, make sure your Vercel domain is on the list.
-- **Compliance Agent always returns "unable to verify"**: expected until
-  the regulations corpus has been ingested at least once — this doesn't
-  happen automatically on Render's free tier (see "Loading the compliance
-  corpus" above; a Render free-tier shell hits the same 512MB OOM risk as
-  the boot-time ingest would). Trigger
+- **Compliance Agent always returns "unable to verify"**: if `GEMINI_API_KEY`
+  is set, this should self-resolve on the next deploy (ingestion runs on
+  boot automatically) — check the deploy log for "Ingesting regulatory
+  corpus into Qdrant" and confirm it didn't error. Without a Gemini key, this
+  is expected until the regulations corpus has been ingested at least once —
+  it doesn't happen automatically on Render's free tier in that case (see
+  "Loading the compliance corpus" above; a Render free-tier shell hits the
+  same 512MB OOM risk as the boot-time ingest would). Trigger
   [`.github/workflows/reingest-corpus.yml`](./.github/workflows/reingest-corpus.yml)
   manually (Actions tab → "Run workflow", after adding `QDRANT_URL`/
   `QDRANT_API_KEY` as repo secrets), or run `ingest_regulations.py` from
   your own machine. If you've already done that and it's still failing,
   double check `QDRANT_URL`/`QDRANT_API_KEY` on the Render service match
-  your Qdrant Cloud cluster exactly.
+  your Qdrant Cloud cluster exactly, and that the ingest ran with the same
+  `GEMINI_API_KEY` state (set or unset) as the live backend — see the
+  collection-mismatch note above.
 
 **Honesty check on this guide:** every step above matches Render/Vercel/Qdrant
 Cloud's documented flows and was reasoned through carefully, but couldn't be
@@ -375,9 +391,17 @@ call this out rather than claim untested things work):
   no `ANTHROPIC_API_KEY` was available. Every agent has a deterministic
   fallback so the pipeline still runs without one; set the key to get real
   LLM reasoning instead of the fallbacks.
-- Real `sentence-transformers` embeddings — Hugging Face model download is
-  blocked here; the ingestion/retrieval code path is correct and tested
-  against a fake embedder, but hasn't downloaded and run the actual model.
+- Real `sentence-transformers` embeddings (the local, RAM-heavy provider) —
+  Hugging Face model download is blocked here; the ingestion/retrieval code
+  path is correct and tested against a fake embedder, but hasn't downloaded
+  and run the actual model.
+- Real Gemini embeddings (`app/embeddings.py`'s `GeminiEmbedder`, the
+  default provider once `GEMINI_API_KEY` is set — see "Loading the
+  compliance corpus" above) — same story as the Claude/Gemini LLM calls
+  above: this sandbox has no route to `generativelanguage.googleapis.com`
+  either, so the dispatch logic, task-type handling, and truncated-vector
+  renormalization math are unit-tested against a fake `genai.Client`
+  (`tests/test_embeddings.py`), not a live API call.
 - OpenStreetMap tile imagery on the Comps Explorer map — `tile.openstreetmap.org`
   is blocked by this sandbox's proxy. Markers render at correct positions;
   only the base map tiles are unverified visually.

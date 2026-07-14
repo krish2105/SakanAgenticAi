@@ -9,9 +9,10 @@ name: Agent quality evals
 # The DB-backed metrics (comps relevance, valuation accuracy) and the
 # citation guardrail battery need no secrets -- they run against the
 # seeded synthetic dataset already committed to this repo. The retrieval
-# quality check is best-effort and needs network access to download the
-# sentence-transformers model; it degrades to "skipped" rather than
-# failing the run when that's unavailable.
+# quality check is best-effort: it needs either a GEMINI_API_KEY repo
+# secret (free embedding API, no download) or network access to download
+# the local sentence-transformers model; it degrades to "skipped" rather
+# than failing the run when neither is available.
 
 on:
   schedule:
@@ -52,4 +53,8 @@ jobs:
       - name: Run eval suite
         env:
           JWT_SECRET_KEY: "ci-test-secret-not-for-production"
+          # Optional: if set as a repo secret, eval_retrieval_quality actually
+          # exercises Gemini's free embedding API instead of skipping (no
+          # sentence-transformers download needed either way with this set).
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python scripts/run_evals.py

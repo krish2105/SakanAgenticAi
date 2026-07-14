@@ -16,7 +16,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import functools
 import os
 import re
 import sys
@@ -27,6 +26,14 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from app.embeddings import get_embedder  # noqa: E402
+
+# Legacy defaults, kept for backward compatibility with callers/tests that
+# don't pass an embedder explicitly (e.g. FakeEmbedder in
+# test_ingest_regulations.py, which has no .collection_name/.dim attrs).
+# The real collection name and vector size now come from the active
+# embedder -- see app/embeddings.py -- since Gemini and the local model
+# produce differently-sized vectors and can't share a collection.
 COLLECTION_NAME = "sakan_regulations"
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 EMBEDDING_DIM = 384
@@ -108,19 +115,6 @@ def load_all_chunks(regulations_dir: Path) -> list[Chunk]:
     return chunks
 
 
-@functools.lru_cache(maxsize=1)
-def get_embedder(model_name: str = EMBEDDING_MODEL):
-    # Cached: the Compliance Agent calls this on every deal query via
-    # retrieval.py, and re-loading sentence-transformers/torch weights from
-    # disk on every request was enough to push a 512MB free-tier container
-    # over its memory limit mid-pipeline (external OOM kill, not a catchable
-    # exception -- see docker-entrypoint.sh's boot-time OOM note for the same
-    # failure class). One resident model instance, reused, instead.
-    from sentence_transformers import SentenceTransformer
-
-    return SentenceTransformer(model_name)
-
-
 def build_qdrant_client(qdrant_url: str, api_key: str | None = None):
     from qdrant_client import QdrantClient
 
@@ -133,12 +127,18 @@ def upsert_chunks(chunks: list[Chunk], client, embedder=None) -> int:
     from qdrant_client.http import models as qmodels
 
     embedder = embedder or get_embedder()
+    # The active embedder names its own collection and vector size (Gemini
+    # and the local model produce differently-sized vectors); anything
+    # without those attrs (e.g. a hand-rolled test fake) falls back to the
+    # original local-model collection/size for backward compatibility.
+    collection_name = getattr(embedder, "collection_name", COLLECTION_NAME)
+    vector_dim = getattr(embedder, "dim", EMBEDDING_DIM)
     vectors = embedder.encode([c.text for c in chunks], show_progress_bar=False, normalize_embeddings=True)
 
-    if not client.collection_exists(COLLECTION_NAME):
+    if not client.collection_exists(collection_name):
         client.create_collection(
-            collection_name=COLLECTION_NAME,
-            vectors_config=qmodels.VectorParams(size=EMBEDDING_DIM, distance=qmodels.Distance.COSINE),
+            collection_name=collection_name,
+            vectors_config=qmodels.VectorParams(size=vector_dim, distance=qmodels.Distance.COSINE),
         )
 
     points = [
@@ -149,7 +149,7 @@ def upsert_chunks(chunks: list[Chunk], client, embedder=None) -> int:
         )
         for i in range(len(chunks))
     ]
-    client.upsert(collection_name=COLLECTION_NAME, points=points)
+    client.upsert(collection_name=collection_name, points=points)
     return len(points)
 
 
@@ -177,8 +177,10 @@ def main() -> None:
         return
 
     client = build_qdrant_client(args.qdrant_url, api_key=args.qdrant_api_key)
-    n = upsert_chunks(chunks, client)
-    print(f"Upserted {n} clauses into Qdrant collection '{COLLECTION_NAME}' at {args.qdrant_url}.")
+    embedder = get_embedder()
+    n = upsert_chunks(chunks, client, embedder=embedder)
+    collection_name = getattr(embedder, "collection_name", COLLECTION_NAME)
+    print(f"Upserted {n} clauses into Qdrant collection '{collection_name}' at {args.qdrant_url}.")
 
 
 if __name__ == "__main__":

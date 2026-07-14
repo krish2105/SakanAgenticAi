@@ -75,7 +75,7 @@ Every node writes to a shared `DealState` object, streamed live to the frontend'
 | Agent orchestration | **LangGraph** | stateful, controllable, inspectable multi-agent workflow |
 | LLM | Claude API — Sonnet for Valuation/Compliance/Memo reasoning, Haiku for Query parsing | cost-controlled, quality where it matters |
 | Vector DB | **Qdrant** (Docker, self-hosted) | free, real vector-DB experience, matches job-spec keywords |
-| Embeddings | `sentence-transformers/all-MiniLM-L6-v2` (local, free) | no API cost dependency |
+| Embeddings | Gemini `gemini-embedding-001` (free API, default once `GEMINI_API_KEY` is set) — fallback: `sentence-transformers/all-MiniLM-L6-v2` (local, free, RAM-heavy) | no API cost dependency either way; see `app/embeddings.py` |
 | Structured DB | PostgreSQL 15 via SQLAlchemy + Alembic | transactions, buildings, developers, projects |
 | Auth | Simple role selector (Agent / Investor / Admin) — no full auth system | keep scope on the agentic/RAG/UI core |
 | Deployment | Frontend → Vercel, Backend + Postgres + Qdrant → Docker Compose on Railway/Render | live demo link, not just a repo |
