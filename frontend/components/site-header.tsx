@@ -3,6 +3,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { LocaleToggle } from "@/components/locale-toggle";
 import { AuthStatus } from "@/components/auth-status";
 import { TransactionTicker } from "@/components/transaction-ticker";
+import { CommandPaletteTrigger } from "@/components/command-palette-trigger";
 import { T } from "@/components/t";
 import type { Tick } from "@/lib/types";
 
@@ -19,6 +20,7 @@ export function SiteHeader({ ticks }: { ticks: Tick[] }) {
           </span>
         </Link>
         <div className="flex items-center gap-3">
+          <CommandPaletteTrigger />
           <AuthStatus />
           <LocaleToggle />
           <ThemeToggle />
