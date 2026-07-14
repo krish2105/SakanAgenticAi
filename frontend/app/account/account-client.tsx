@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/components/auth-provider";
+import { UsageTimeseriesChart } from "@/components/charts/usage-timeseries-chart";
 import {
   fetchSessions,
   revokeAllSessions,
@@ -17,8 +18,10 @@ import {
   fetchApiKeys,
   createApiKey,
   revokeApiKey,
+  fetchApiUsageTimeseries,
   type AuthSession,
   type ApiKeySummary,
+  type DailyUsage,
 } from "@/lib/api";
 
 export function AccountClient() {
@@ -192,6 +195,7 @@ function ApiKeysPanel() {
   const { token } = useAuth();
   const { toast } = useToast();
   const [keys, setKeys] = useState<ApiKeySummary[] | null>(null);
+  const [usage, setUsage] = useState<DailyUsage[] | null>(null);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -202,6 +206,7 @@ function ApiKeysPanel() {
     fetchApiKeys(token)
       .then((data) => setKeys(data))
       .catch(() => toast("Couldn't load API keys", "error"));
+    fetchApiUsageTimeseries(token).then(setUsage).catch(() => setUsage(null));
   }, [token, toast]);
 
   useEffect(() => {
@@ -309,6 +314,8 @@ function ApiKeysPanel() {
             Create
           </Button>
         </form>
+
+        {keys && keys.length > 0 && usage && usage.length > 0 && <UsageTimeseriesChart days={usage} />}
       </CardContent>
     </Card>
   );

@@ -47,6 +47,32 @@ def test_billing_me_reports_starter_defaults(seeded_sqlite_db):
         assert body["queries_remaining"] == 5
 
 
+def test_usage_timeseries_requires_auth(seeded_sqlite_db):
+    with TestClient(app) as client:
+        assert client.get("/billing/usage-timeseries").status_code == 401
+
+
+def test_usage_timeseries_reflects_queries_submitted_today(seeded_sqlite_db):
+    limiter.reset()
+    try:
+        with TestClient(app) as client:
+            headers = _register(client, "usage-timeseries@example.com")
+
+            empty = client.get("/billing/usage-timeseries", headers=headers)
+            assert empty.status_code == 200
+            assert empty.json() == {"days": []}
+
+            for i in range(3):
+                res = client.post("/deals/query", json={"raw_query": f"usage query {i}"}, headers=headers)
+                assert res.status_code == 202
+
+            after = client.get("/billing/usage-timeseries", headers=headers).json()
+            assert len(after["days"]) == 1  # all 3 queries land on today's date
+            assert after["days"][0]["count"] == 3
+    finally:
+        limiter.reset()
+
+
 def test_starter_tier_is_blocked_after_five_full_pipeline_queries(seeded_sqlite_db):
     limiter.reset()
     try:

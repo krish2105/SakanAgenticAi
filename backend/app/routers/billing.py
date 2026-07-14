@@ -21,7 +21,7 @@ from app.auth import get_current_user
 from app.db import get_session_factory
 from app.models import Organization, StripeWebhookEvent, User
 from app.services import team_service
-from app.services.billing_service import PLANS, quota_status, stripe_price_id_for, tier_for_price_id
+from app.services.billing_service import PLANS, get_daily_query_counts, quota_status, stripe_price_id_for, tier_for_price_id
 from app.services.email import send_email
 from app.services.pipeline_runner import ensure_tables
 
@@ -72,6 +72,14 @@ async def billing_me(current_user: User = Depends(get_current_user)) -> dict:
     session_factory = get_session_factory()
     with session_factory() as session:
         return quota_status(session, current_user)
+
+
+@router.get("/usage-timeseries")
+async def billing_usage_timeseries(current_user: User = Depends(get_current_user)) -> dict:
+    ensure_tables()
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        return {"days": get_daily_query_counts(session, current_user.user_id)}
 
 
 @router.post("/checkout", response_model=CheckoutResponse)

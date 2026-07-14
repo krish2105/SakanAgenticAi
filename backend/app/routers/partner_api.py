@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 
 from app.auth import get_current_user
-from app.api_keys import create_api_key, get_user_for_api_key, list_api_keys, revoke_api_key
+from app.api_keys import create_api_key, get_usage_timeseries, get_user_for_api_key, list_api_keys, revoke_api_key
 from app.db import get_session_factory
 from app.models import User
 from app.ratelimit import client_ip_key, limiter
@@ -81,6 +81,13 @@ async def delete_my_api_key(api_key_id: int, current_user: User = Depends(get_cu
         if not found:
             raise HTTPException(status_code=404, detail="API key not found")
         session.commit()
+
+
+@router.get("/usage")
+async def my_api_usage(current_user: User = Depends(get_current_user)) -> dict:
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        return {"days": get_usage_timeseries(session, current_user.user_id)}
 
 
 def require_api_key(x_api_key: str | None = Header(default=None)) -> User:

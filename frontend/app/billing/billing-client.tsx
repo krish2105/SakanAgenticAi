@@ -11,8 +11,10 @@ import { capture } from "@/lib/analytics";
 import { useAuth } from "@/components/auth-provider";
 import { useLocale } from "@/components/locale-provider";
 import { useToast } from "@/components/ui/toast";
+import { UsageTimeseriesChart } from "@/components/charts/usage-timeseries-chart";
 import {
   fetchBillingStatus,
+  fetchUsageTimeseries,
   openBillingPortal,
   startCheckout,
   fetchTeamMembers,
@@ -20,6 +22,7 @@ import {
   removeTeamMember,
   type BillingPlans,
   type BillingStatus,
+  type DailyUsage,
   type TeamMember,
 } from "@/lib/api";
 
@@ -42,6 +45,7 @@ export function BillingClient({ plans }: { plans: BillingPlans }) {
   const { t } = useLocale();
   const { user, token, loading: authLoading } = useAuth();
   const [status, setStatus] = useState<BillingStatus | null>(null);
+  const [usage, setUsage] = useState<DailyUsage[] | null>(null);
   const [pendingTier, setPendingTier] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [members, setMembers] = useState<TeamMember[] | null>(null);
@@ -54,6 +58,7 @@ export function BillingClient({ plans }: { plans: BillingPlans }) {
   useEffect(() => {
     if (!token) return;
     fetchBillingStatus(token).then(setStatus).catch(() => setStatus(null));
+    fetchUsageTimeseries(token).then(setUsage).catch(() => setUsage(null));
     loadMembers();
   }, [token, loadMembers]);
 
@@ -116,6 +121,11 @@ export function BillingClient({ plans }: { plans: BillingPlans }) {
               </Button>
             )}
           </CardContent>
+          {usage && usage.length > 0 && (
+            <CardContent className="pt-0">
+              <UsageTimeseriesChart days={usage} />
+            </CardContent>
+          )}
         </Card>
       )}
 

@@ -67,6 +67,30 @@ def get_monthly_query_count(session: Session, owner_id: int) -> int:
     ) or 0
 
 
+def get_daily_query_counts(session: Session, owner_id: int) -> list[dict]:
+    """Per-day full-pipeline query counts since the start of the current UTC
+    month, for the usage-over-time chart on the billing page. Sourced from
+    the same DealQuery rows enforce_quota already counts -- no separate
+    usage-log table, same reasoning as get_monthly_query_count's docstring.
+
+    Grouped in Python rather than via SQL cast(..., Date)/GROUP BY: this
+    tier's monthly quota (5-50 full-pipeline queries) keeps the row count
+    trivially small, and SQLite's DATE cast doesn't reliably round-trip
+    through SQLAlchemy's Date type processor (raises on a DATETIME-stored
+    column), while a portable dialect-branching query isn't worth it for
+    a query volume this small."""
+    timestamps = session.scalars(
+        select(DealQuery.created_at).where(
+            DealQuery.owner_id == owner_id, DealQuery.created_at >= _month_start()
+        )
+    ).all()
+    counts: dict[str, int] = {}
+    for ts in timestamps:
+        day = ts.date().isoformat()
+        counts[day] = counts.get(day, 0) + 1
+    return [{"date": day, "count": count} for day, count in sorted(counts.items())]
+
+
 def quota_status(session: Session, user: User) -> dict:
     plan = PLANS.get(user.tier, PLANS["starter"])
     used = get_monthly_query_count(session, user.user_id)

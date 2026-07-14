@@ -85,6 +85,49 @@ def test_partner_comps_returns_data_for_a_valid_key(seeded_sqlite_db):
         assert len(comps) <= 5
 
 
+def test_usage_endpoint_requires_auth(seeded_sqlite_db):
+    with TestClient(app) as client:
+        assert client.get("/partner/usage").status_code == 401
+
+
+def test_usage_tracks_authenticated_calls_and_ignores_invalid_ones(seeded_sqlite_db):
+    with TestClient(app) as client:
+        access = _register(client)
+        created = client.post(
+            "/partner/api-keys", json={"name": "Integration"}, headers={"Authorization": f"Bearer {access}"}
+        ).json()
+
+        empty = client.get("/partner/usage", headers={"Authorization": f"Bearer {access}"})
+        assert empty.status_code == 200
+        assert empty.json() == {"days": []}
+
+        for _ in range(3):
+            res = client.get("/partner/v1/comps", headers={"X-API-Key": created["api_key"]})
+            assert res.status_code == 200
+
+        # An invalid key must not inflate the count.
+        client.get("/partner/v1/comps", headers={"X-API-Key": "sk_live_not-a-real-key"})
+
+        usage = client.get("/partner/usage", headers={"Authorization": f"Bearer {access}"}).json()
+        assert len(usage["days"]) == 1  # all calls land on today
+        assert usage["days"][0]["count"] == 3
+
+
+def test_usage_is_scoped_to_the_owning_user(seeded_sqlite_db):
+    with TestClient(app) as client:
+        access_a = _register(client, email="usage-a@example.com")
+        access_b = _register(client, email="usage-b@example.com")
+
+        key_a = client.post(
+            "/partner/api-keys", json={"name": "A's key"}, headers={"Authorization": f"Bearer {access_a}"}
+        ).json()
+
+        client.get("/partner/v1/comps", headers={"X-API-Key": key_a["api_key"]})
+
+        usage_b = client.get("/partner/usage", headers={"Authorization": f"Bearer {access_b}"}).json()
+        assert usage_b == {"days": []}
+
+
 def test_partner_comps_rejects_a_revoked_key(seeded_sqlite_db):
     with TestClient(app) as client:
         access = _register(client)

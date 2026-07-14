@@ -7,6 +7,7 @@ import { Bookmark, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProvenanceBadge } from "@/components/comps-table";
+import { WatchlistStats } from "@/components/watchlist-stats";
 import { useAuth } from "@/components/auth-provider";
 import { fetchSavedComps, unsaveComp, AuthRequiredError } from "@/lib/api";
 import type { Comp } from "@/lib/types";
@@ -96,7 +97,9 @@ export function SavedCompsClient() {
         </div>
       </div>
 
-      <div className="mt-6 flex flex-col gap-3">
+      {!isLoading && comps && <div className="mt-6"><WatchlistStats comps={comps} /></div>}
+
+      <div className={comps && comps.length > 0 ? "flex flex-col gap-3" : "mt-6 flex flex-col gap-3"}>
         {isLoading &&
           Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="rounded-xl border border-border bg-surface p-4">

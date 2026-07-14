@@ -164,6 +164,23 @@ class ApiKey(Base):
     revoked = Column(Boolean, nullable=False, server_default=text("false"))
 
 
+class ApiKeyUsage(Base):
+    """Per-key, per-day request counter for the partner API dashboard's
+    volume chart. Deliberately coarse (one row per key per day, incremented
+    on each authenticated call) rather than a full request log -- there's
+    only one partner endpoint today (GET /partner/v1/comps), so per-endpoint
+    breakdown would be a column with a single always-the-same value; add
+    that column if/when a second partner endpoint actually ships."""
+
+    __tablename__ = "api_key_usage"
+    __table_args__ = (UniqueConstraint("api_key_id", "date", name="uq_api_key_usage_key_date"),)
+
+    usage_id = Column(Integer, primary_key=True, autoincrement=True)
+    api_key_id = Column(Integer, ForeignKey("api_keys.api_key_id"), nullable=False)
+    date = Column(Date, nullable=False)
+    count = Column(Integer, nullable=False, server_default=text("0"))
+
+
 class DealQuery(Base):
     __tablename__ = "deal_queries"
 

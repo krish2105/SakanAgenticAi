@@ -434,6 +434,19 @@ export async function revokeApiKey(apiKeyId: number, token: string): Promise<voi
   if (!res.ok) throw new Error(await parseAuthError(res));
 }
 
+/** Combined daily request volume across all of this user's API keys.
+ * Reuses the DailyUsage shape from the billing usage-timeseries endpoint --
+ * same {date, count} rows, same UsageTimeseriesChart component renders both. */
+export async function fetchApiUsageTimeseries(token: string): Promise<DailyUsage[]> {
+  try {
+    const res = await authedGet<{ days: DailyUsage[] }>("/partner/usage", token);
+    return res.days;
+  } catch (err) {
+    if (err instanceof AuthRequiredError) throw err;
+    return [];
+  }
+}
+
 // --- Deals (all require auth) ---
 
 export async function submitDealQuery(raw_query: string, token: string): Promise<{ query_id: string }> {
@@ -566,6 +579,21 @@ export async function fetchBillingStatus(token: string): Promise<BillingStatus |
   } catch (err) {
     if (err instanceof AuthRequiredError) throw err;
     return null;
+  }
+}
+
+export interface DailyUsage {
+  date: string;
+  count: number;
+}
+
+export async function fetchUsageTimeseries(token: string): Promise<DailyUsage[]> {
+  try {
+    const res = await authedGet<{ days: DailyUsage[] }>("/billing/usage-timeseries", token);
+    return res.days;
+  } catch (err) {
+    if (err instanceof AuthRequiredError) throw err;
+    return [];
   }
 }
 
