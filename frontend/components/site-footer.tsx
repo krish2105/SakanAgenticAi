@@ -41,6 +41,11 @@ export function SiteFooter() {
                 </Link>
               </li>
               <li>
+                <Link href="/faq" className="hover:text-text-primary">
+                  <T k="footer.faq" />
+                </Link>
+              </li>
+              <li>
                 <Link href="/status" className="hover:text-text-primary">
                   <T k="footer.status" />
                 </Link>
