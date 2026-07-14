@@ -73,10 +73,10 @@ export default async function RootLayout({
             <div className="flex flex-1 flex-col">
               <div className="flex flex-1">
                 <NavRail />
-                {/* pb-16 clears the fixed mobile bottom bar; removed at md+ */}
-                <main className="min-w-0 flex-1 pb-16 md:pb-0">{children}</main>
+                {/* pb-20 clears the floating mobile bottom dock; removed at md+ */}
+                <main className="min-w-0 flex-1 pb-20 md:pb-0">{children}</main>
               </div>
-              <div className="pb-16 md:pb-0">
+              <div className="pb-20 md:pb-0">
                 <SiteFooter />
               </div>
             </div>

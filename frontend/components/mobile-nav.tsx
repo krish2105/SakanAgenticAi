@@ -15,7 +15,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="Primary"
-      className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 flex rounded-2xl border border-border bg-surface/85 shadow-lg shadow-black/10 backdrop-blur-md supports-[backdrop-filter]:bg-surface/70 dark:shadow-black/30 md:hidden"
     >
       {NAV_ITEMS.map(({ href, labelKey, icon: Icon }) => {
         const active = isActive(pathname, href);
@@ -27,8 +27,9 @@ export function MobileNav() {
             aria-label={label}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex flex-1 flex-col items-center gap-1 py-2 text-[10px] transition-colors",
+              "flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] transition-all duration-200",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brass",
+              "first:rounded-s-2xl last:rounded-e-2xl",
               active ? "text-brass" : "text-text-muted hover:text-text-primary"
             )}
           >

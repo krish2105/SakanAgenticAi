@@ -59,7 +59,7 @@ export function QueryBar() {
         }}
         className="flex flex-col gap-2 sm:flex-row"
       >
-        <div className="relative flex-1">
+        <div className="relative flex-1 rounded-lg shadow-lg shadow-black/[0.03] transition-shadow duration-200 focus-within:shadow-brass/10 dark:shadow-black/20 dark:focus-within:shadow-brass/[0.08]">
           <Search size={16} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-text-muted" />
           <Input
             value={value}

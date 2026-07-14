@@ -34,7 +34,7 @@ export default async function GuidesPage() {
       <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {sorted.map((row) => (
           <Link key={row.community} href={`/guides/${communityToSlug(row.community)}`}>
-            <Card className="transition-colors hover:border-brass/50">
+            <Card className="transition-all duration-200 hover:-translate-y-0.5 hover:border-brass/50 hover:shadow-lg hover:shadow-black/[0.04] dark:hover:shadow-black/20">
               <CardContent className="flex items-start justify-between gap-3 p-4">
                 <span className="font-medium text-text-primary">{row.community}</span>
                 <span className="shrink-0 whitespace-nowrap font-mono text-sm text-brass">
@@ -54,7 +54,7 @@ export default async function GuidesPage() {
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {sortedTypes.map((row) => (
               <Link key={row.property_type} href={`/guides/type/${propertyTypeToSlug(row.property_type)}`}>
-                <Card className="transition-colors hover:border-brass/50">
+                <Card className="transition-all duration-200 hover:-translate-y-0.5 hover:border-brass/50 hover:shadow-lg hover:shadow-black/[0.04] dark:hover:shadow-black/20">
                   <CardContent className="flex items-start justify-between gap-3 p-4">
                     <span className="font-medium text-text-primary">{row.property_type}</span>
                     <span className="shrink-0 whitespace-nowrap font-mono text-sm text-brass">
