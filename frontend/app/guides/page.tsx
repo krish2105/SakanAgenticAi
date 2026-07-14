@@ -1,18 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { fetchMarketSnapshot } from "@/lib/api";
+import { fetchMarketSnapshot, fetchPropertyTypeSnapshot } from "@/lib/api";
 import { communityToSlug } from "@/lib/community-slug";
+import { propertyTypeToSlug } from "@/lib/property-type-slug";
 
 export const metadata: Metadata = {
   title: "Dubai Real Estate Market Guides",
   description:
-    "Community-by-community price data for Dubai real estate: average price per square foot, recent comparable sales, and market trends, sourced directly from transaction records.",
+    "Community-by-community and property-type price data for Dubai real estate: average price per square foot, recent comparable sales, and market trends, sourced directly from transaction records.",
 };
 
 export default async function GuidesPage() {
-  const snapshot = await fetchMarketSnapshot(20);
+  const [snapshot, propertyTypes] = await Promise.all([
+    fetchMarketSnapshot(20),
+    fetchPropertyTypeSnapshot(),
+  ]);
   const sorted = [...snapshot].sort((a, b) => a.community.localeCompare(b.community));
+  const sortedTypes = [...propertyTypes].sort((a, b) => b.transaction_count - a.transaction_count);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
@@ -40,6 +45,28 @@ export default async function GuidesPage() {
           </Link>
         ))}
       </div>
+
+      {sortedTypes.length > 0 && (
+        <>
+          <h2 className="mt-12 font-display text-sm font-medium uppercase tracking-wide text-text-muted">
+            By property type
+          </h2>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {sortedTypes.map((row) => (
+              <Link key={row.property_type} href={`/guides/type/${propertyTypeToSlug(row.property_type)}`}>
+                <Card className="transition-colors hover:border-brass/50">
+                  <CardContent className="flex items-center justify-between p-4">
+                    <span className="font-medium text-text-primary">{row.property_type}</span>
+                    <span className="font-mono text-sm text-brass">
+                      AED {Math.round(row.avg_price_per_sqft).toLocaleString()}/sqft
+                    </span>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

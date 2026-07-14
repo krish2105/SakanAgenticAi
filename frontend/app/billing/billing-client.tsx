@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { Check, UserMinus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -158,11 +159,11 @@ export function BillingClient({ plans }: { plans: BillingPlans }) {
                     {isCurrent ? "Current plan" : pendingTier === tier ? "Redirecting…" : `Upgrade to ${plan.label}`}
                   </Button>
                 ) : tier === "enterprise" ? (
-                  <a href="mailto:sales@sakan.ai?subject=Sakan%20AI%20Enterprise" className="w-full">
+                  <Link href="/contact-sales" className="w-full">
                     <Button size="sm" variant="outline" className="w-full">
                       Contact sales
                     </Button>
-                  </a>
+                  </Link>
                 ) : (
                   <Button size="sm" variant="outline" disabled>
                     Included

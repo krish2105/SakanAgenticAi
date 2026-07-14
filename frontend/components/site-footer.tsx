@@ -77,9 +77,9 @@ export function SiteFooter() {
             </p>
             <ul className="mt-3 flex flex-col gap-2 text-text-muted">
               <li>
-                <a href="mailto:sales@sakan.ai" className="hover:text-text-primary">
+                <Link href="/contact-sales" className="hover:text-text-primary">
                   <T k="footer.contactSales" />
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

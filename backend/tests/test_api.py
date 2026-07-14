@@ -120,6 +120,11 @@ def test_market_ticker_and_trends(seeded_sqlite_db):
         off_plan = client.get("/market/trends", params={"view": "off_plan"}).json()
         assert len(off_plan) == 20
 
+        property_types = client.get("/market/trends", params={"view": "property_type"}).json()
+        assert len(property_types) > 0
+        assert {"property_type", "avg_price_per_sqft", "transaction_count"} <= set(property_types[0].keys())
+        assert all(row["transaction_count"] > 0 for row in property_types)
+
 
 def test_deal_query_full_lifecycle(monkeypatch, seeded_sqlite_db):
     monkeypatch.setattr(query_agent_module, "complete_json", _fake_query_json)

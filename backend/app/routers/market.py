@@ -102,6 +102,28 @@ async def market_trends(view: str = "summary", community: str | None = None, lim
             for c, m, p in rows
         ]
 
+    if view == "property_type":
+        with session_factory() as session:
+            stmt = (
+                select(
+                    Transaction.property_type,
+                    func.avg(Transaction.price_per_sqft).label("avg_price_per_sqft"),
+                    func.count(Transaction.transaction_id).label("transaction_count"),
+                )
+                .where(Transaction.property_type.is_not(None))
+                .group_by(Transaction.property_type)
+                .order_by(func.count(Transaction.transaction_id).desc())
+            )
+            rows = session.execute(stmt).all()
+        return [
+            {
+                "property_type": t,
+                "avg_price_per_sqft": round(float(p), 2) if p is not None else None,
+                "transaction_count": n,
+            }
+            for t, p, n in rows
+        ]
+
     # default: view == "summary" -- avg price/sqft by community, top N
     with session_factory() as session:
         stmt = (

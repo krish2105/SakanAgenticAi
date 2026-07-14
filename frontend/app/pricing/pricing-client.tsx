@@ -82,11 +82,11 @@ export function PricingClient({ plans }: { plans: BillingPlans }) {
                   ))}
                 </ul>
                 {isEnterprise ? (
-                  <a href="mailto:sales@sakan.ai?subject=Sakan%20AI%20Enterprise">
+                  <Link href="/contact-sales">
                     <Button size="sm" variant="outline" className="w-full">
                       <T k="pricing.contactSales" />
                     </Button>
-                  </a>
+                  </Link>
                 ) : (
                   <Link href={`/login?next=${encodeURIComponent("/billing")}`}>
                     <Button size="sm" className="w-full">

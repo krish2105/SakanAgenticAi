@@ -1,0 +1,31 @@
+# Sakan AI
+
+> Agentic deal-intelligence platform for Dubai real estate. A five-agent
+> pipeline (Query, Comps, Valuation, Compliance, Memo) turns a plain-English
+> question into cited comparable sales, a defensible valuation range, a RERA
+> compliance check, and an investor-ready memo — every claim traceable to a
+> real transaction record or a cited regulatory clause, never fabricated.
+
+## Product
+
+- [Home](https://sakan-agentic-ai.vercel.app/): Ask a deal question, see the live agent pipeline run.
+- [Pricing](https://sakan-agentic-ai.vercel.app/pricing): Starter/Pro/Team plans and quota limits.
+- [Comps Explorer](https://sakan-agentic-ai.vercel.app/comps): Filterable comparable-sales search.
+- [Analytics](https://sakan-agentic-ai.vercel.app/market): Market trends, developer leaderboard, off-plan funnel.
+- [Market guides](https://sakan-agentic-ai.vercel.app/guides): Community-by-community and property-type price data, computed from real transaction records.
+- [System status](https://sakan-agentic-ai.vercel.app/status): Live backend/database/cache/vector-search health.
+
+## Legal
+
+- [Terms of Service](https://sakan-agentic-ai.vercel.app/legal/terms)
+- [Privacy Policy](https://sakan-agentic-ai.vercel.app/legal/privacy)
+- [Data Processing Addendum](https://sakan-agentic-ai.vercel.app/legal/dpa)
+
+## Notes
+
+- Demo deployment runs on synthetic and public-dataset transaction data, not
+  a licensed DLD feed — see the Market guides pages for exact data provenance
+  per figure.
+- The regulatory corpus backing the Compliance Agent is currently unreviewed
+  by counsel; every compliance answer says so explicitly rather than
+  implying legal sign-off.

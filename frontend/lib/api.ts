@@ -164,6 +164,19 @@ export async function fetchOffPlanFunnel(): Promise<OffPlanFunnelEntry[]> {
   return safeGet<OffPlanFunnelEntry[]>("/market/off-plan-funnel", DEMO_FUNNEL);
 }
 
+export interface PropertyTypeSnapshot {
+  property_type: string;
+  avg_price_per_sqft: number;
+  transaction_count: number;
+}
+
+/** Phase 19: powers /guides/type/[propertyType], the property-type
+ * counterpart to Phase 14's per-community guide pages -- same real,
+ * never-fabricated data posture. */
+export async function fetchPropertyTypeSnapshot(): Promise<PropertyTypeSnapshot[]> {
+  return safeGet<PropertyTypeSnapshot[]>("/market/trends?view=property_type", []);
+}
+
 // --- Status page (Phase 18) ---
 
 export interface ReadinessCheck {

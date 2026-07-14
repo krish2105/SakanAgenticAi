@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
-import { fetchMarketSnapshot } from "@/lib/api";
+import { fetchMarketSnapshot, fetchPropertyTypeSnapshot } from "@/lib/api";
 import { communityToSlug } from "@/lib/community-slug";
+import { propertyTypeToSlug } from "@/lib/property-type-slug";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://sakan-agentic-ai.vercel.app";
 
@@ -32,5 +33,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.5,
   }));
 
-  return [...staticEntries, ...guideEntries];
+  // Phase 19: one indexable page per property type, same real-data posture.
+  const propertyTypes = await fetchPropertyTypeSnapshot();
+  const propertyTypeEntries: MetadataRoute.Sitemap = propertyTypes.map((row) => ({
+    url: `${SITE_URL}/guides/type/${propertyTypeToSlug(row.property_type)}`,
+    lastModified: now,
+    changeFrequency: "weekly",
+    priority: 0.5,
+  }));
+
+  return [...staticEntries, ...guideEntries, ...propertyTypeEntries];
 }
