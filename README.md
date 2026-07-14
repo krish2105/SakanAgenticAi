@@ -24,6 +24,7 @@ pip install -r requirements.txt
 export DATABASE_URL=postgresql+psycopg2://sakan:sakan@localhost:5432/sakan
 export JWT_SECRET_KEY=$(openssl rand -hex 32)   # required -- see Auth section below
 export ANTHROPIC_API_KEY=sk-ant-...             # optional, required for live agent reasoning
+export GEMINI_API_KEY=AIza...                   # optional, free-tier alternative -- see below
 python scripts/seed_db.py --seed-dir seed_data          # synthetic demo data
 python scripts/ingest_regulations.py --regulations-dir ../regulations \
   --qdrant-url http://localhost:6333
@@ -42,6 +43,13 @@ Query Agent falls back to a default `comps_search` classification and the
 Valuation/Memo agents fall back to deterministic comp-median/state-assembled
 results (see "Status" below) — so you can exercise the full data path with
 zero API cost before wiring in a key.
+
+**Free real LLM reasoning, no card required:** set `GEMINI_API_KEY` instead
+of `ANTHROPIC_API_KEY` and every agent gets genuine LLM reasoning instead of
+the deterministic fallback, at zero cost. Get a key at
+[aistudio.google.com/apikey](https://aistudio.google.com/apikey) (Google AI
+Studio's free tier: 1,500 requests/day, no credit card). `ANTHROPIC_API_KEY`
+wins if both are set. See `app/llm.py` for the provider dispatch.
 
 ## Auth
 

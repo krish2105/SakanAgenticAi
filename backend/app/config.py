@@ -9,12 +9,26 @@ SAKAN_ENV = os.environ.get("SAKAN_ENV", "development").strip().lower()
 IS_PRODUCTION = SAKAN_ENV == "production"
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+# Free-tier LLM fallback (Google AI Studio, no card required): used only when
+# ANTHROPIC_API_KEY is unset, so a paid Anthropic key always wins on quality
+# if both are configured. See app/llm.py for the provider dispatch.
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 QDRANT_URL = os.environ.get("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY")  # required for Qdrant Cloud, unused for self-hosted
 
 # ARCHITECTURE.md Section 3: Sonnet for Valuation/Compliance/Memo, Haiku for Query parsing.
-QUERY_MODEL = os.environ.get("SAKAN_QUERY_MODEL", "claude-haiku-4-5-20251001")
-REASONING_MODEL = os.environ.get("SAKAN_REASONING_MODEL", "claude-sonnet-5")
+# Model *names* double as the provider dispatch key in app/llm.py (a
+# "claude-"-prefixed model routes to Anthropic, "gemini-"-prefixed routes to
+# Gemini) -- so which default applies here follows the same
+# Anthropic-preferred-if-both-set precedence as the rest of this file.
+if ANTHROPIC_API_KEY or not GEMINI_API_KEY:
+    _DEFAULT_QUERY_MODEL = "claude-haiku-4-5-20251001"
+    _DEFAULT_REASONING_MODEL = "claude-sonnet-5"
+else:
+    _DEFAULT_QUERY_MODEL = "gemini-2.5-flash"
+    _DEFAULT_REASONING_MODEL = "gemini-2.5-flash"
+QUERY_MODEL = os.environ.get("SAKAN_QUERY_MODEL", _DEFAULT_QUERY_MODEL)
+REASONING_MODEL = os.environ.get("SAKAN_REASONING_MODEL", _DEFAULT_REASONING_MODEL)
 
 JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
 if not JWT_SECRET_KEY:

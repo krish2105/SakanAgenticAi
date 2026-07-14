@@ -27,7 +27,12 @@
 #   CORS_ORIGINS       - your Vercel frontend URL, e.g.
 #                        https://sakan-agentic-ai.vercel.app (comma-separate
 #                        multiple origins if needed)
-#   ANTHROPIC_API_KEY  - optional; every agent has a deterministic fallback
+#   ANTHROPIC_API_KEY  - optional; every agent has a deterministic fallback.
+#                        Wins over GEMINI_API_KEY if both are set.
+#   GEMINI_API_KEY     - optional, free tier; Google AI Studio
+#                        (aistudio.google.com/apikey, no card) gives real LLM
+#                        reasoning at zero cost if ANTHROPIC_API_KEY is unset.
+#                        See app/llm.py.
 #   REDIS_URL          - optional; unset means the WS pub/sub falls back to an
 #                        in-memory registry, which is fine for a single Render
 #                        instance (the free plan's default) but stops
@@ -81,6 +86,8 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
         sync: false
       - key: QDRANT_URL
         sync: false
