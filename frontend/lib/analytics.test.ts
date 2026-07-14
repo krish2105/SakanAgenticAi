@@ -32,13 +32,39 @@ describe("analytics (NEXT_PUBLIC_POSTHOG_KEY unset)", () => {
   });
 });
 
-describe("analytics (NEXT_PUBLIC_POSTHOG_KEY set)", () => {
+describe("analytics (NEXT_PUBLIC_POSTHOG_KEY set, consent not yet accepted)", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.stubEnv("NEXT_PUBLIC_POSTHOG_KEY", "phc_test_key");
+    window.localStorage.clear();
     Object.values(posthogMock).forEach((fn) => fn.mockClear());
   });
   afterEach(() => vi.unstubAllEnvs());
+
+  it("every export stays a no-op until the visitor accepts the cookie banner", async () => {
+    const analytics = await import("./analytics");
+    analytics.initAnalytics();
+    analytics.capture("some_event");
+    analytics.capturePageview("/deals");
+    analytics.identifyUser(1);
+
+    expect(posthogMock.init).not.toHaveBeenCalled();
+    expect(posthogMock.capture).not.toHaveBeenCalled();
+    expect(posthogMock.identify).not.toHaveBeenCalled();
+  });
+});
+
+describe("analytics (NEXT_PUBLIC_POSTHOG_KEY set, consent accepted)", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.stubEnv("NEXT_PUBLIC_POSTHOG_KEY", "phc_test_key");
+    window.localStorage.setItem("sakan_cookie_consent", "accepted");
+    Object.values(posthogMock).forEach((fn) => fn.mockClear());
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    window.localStorage.clear();
+  });
 
   it("initAnalytics initializes posthog-js exactly once", async () => {
     const analytics = await import("./analytics");

@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { NavRail } from "@/components/nav-rail";
 import { MobileNav } from "@/components/mobile-nav";
 import { BackendStatusBanner } from "@/components/backend-status-banner";
+import { CookieConsentBanner } from "@/components/cookie-consent-banner";
 import { SiteFooter } from "@/components/site-footer";
 import { fetchTicker } from "@/lib/api";
 
@@ -81,6 +82,7 @@ export default async function RootLayout({
             </div>
           </div>
           <MobileNav />
+          <CookieConsentBanner />
         </Providers>
       </body>
     </html>
