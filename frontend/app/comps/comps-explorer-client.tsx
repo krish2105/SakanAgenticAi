@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { Download } from "lucide-react";
+import { Download, BarChart3 } from "lucide-react";
 import { CompsFilterBar, type CompsFilters } from "@/components/comps-filter-bar";
 import { ProvenanceBadge } from "@/components/comps-table";
+import { PriceDistributionChart } from "@/components/charts/price-distribution-chart";
 import { Button } from "@/components/ui/button";
 import { SaveCompButton } from "@/components/save-comp-button";
 import { T } from "@/components/t";
@@ -33,6 +34,7 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [showDistribution, setShowDistribution] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,6 +121,16 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
             type="button"
             variant="outline"
             size="sm"
+            onClick={() => setShowDistribution((v) => !v)}
+            aria-pressed={showDistribution}
+          >
+            <BarChart3 size={14} />
+            {showDistribution ? "Hide distribution" : "Show distribution"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
             disabled={comps.length === 0}
             onClick={() => {
               capture("comps_csv_exported", { count: comps.length });
@@ -130,6 +142,12 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
           </Button>
         </div>
       </div>
+
+      {showDistribution && (
+        <div className="rounded-xl border border-border bg-surface p-4">
+          <PriceDistributionChart comps={comps} />
+        </div>
+      )}
 
       <div className="grid min-h-0 grid-cols-1 gap-4 lg:h-[calc(100vh-13rem)] lg:grid-cols-2">
         <div className="h-[420px] min-h-0 overflow-hidden rounded-xl border border-border lg:h-full">
