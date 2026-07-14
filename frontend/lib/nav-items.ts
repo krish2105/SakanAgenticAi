@@ -1,4 +1,4 @@
-import { LayoutGrid, Map, BarChart3, FileText, CreditCard, type LucideIcon } from "lucide-react";
+import { LayoutGrid, Map, BarChart3, FileText, Bookmark, CreditCard, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -13,6 +13,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/comps", labelKey: "nav.comps", icon: Map },
   { href: "/market", labelKey: "nav.analytics", icon: BarChart3 },
   { href: "/deals", labelKey: "nav.deals", icon: FileText },
+  { href: "/saved", labelKey: "nav.saved", icon: Bookmark },
   { href: "/billing", labelKey: "nav.billing", icon: CreditCard },
 ];
 

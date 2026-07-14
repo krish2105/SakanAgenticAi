@@ -1,6 +1,7 @@
 """SQLAlchemy ORM models mirroring the Postgres schema in ARCHITECTURE.md Section 8."""
 from sqlalchemy import (
-    JSON, Boolean, Column, String, Integer, Numeric, Date, DateTime, ForeignKey, Text, func, text
+    JSON, Boolean, Column, String, Integer, Numeric, Date, DateTime, ForeignKey, Text,
+    UniqueConstraint, func, text
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import declarative_base, relationship
@@ -252,3 +253,19 @@ class StripeWebhookEvent(Base):
     event_id = Column(String(255), primary_key=True)
     event_type = Column(String(100), nullable=False)
     received_at = Column(DateTime, server_default=func.now())
+
+
+class SavedComp(Base):
+    """A user's watchlist entry for a single comparable transaction.
+    Natural-keyed on (owner_id, transaction_id) rather than surfacing a
+    separate save/unsave concept per user+comp pair with its own lifecycle --
+    saving is just "does this row exist," so the unique constraint is what
+    makes save idempotent instead of application-level check-then-insert."""
+
+    __tablename__ = "saved_comps"
+    __table_args__ = (UniqueConstraint("owner_id", "transaction_id", name="uq_saved_comp_owner_transaction"),)
+
+    saved_comp_id = Column(Integer, primary_key=True, autoincrement=True)
+    owner_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    transaction_id = Column(String(15), ForeignKey("transactions.transaction_id"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())

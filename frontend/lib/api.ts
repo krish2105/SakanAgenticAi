@@ -217,6 +217,30 @@ export async function fetchComps(params: Record<string, string | number | undefi
   return safeGet<Comp[]>(`/comps?${qs.toString()}`, DEMO_COMPS);
 }
 
+// --- Saved comps / watchlist ---
+
+export async function fetchSavedComps(token: string): Promise<Comp[]> {
+  return authedGet<Comp[]>("/comps/saved", token);
+}
+
+/** Idempotent server-side -- safe to call even if the UI's local "is this
+ * saved" state is stale. */
+export async function saveComp(transactionId: string, token: string): Promise<void> {
+  const res = await authedFetch(
+    "/comps/saved",
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transaction_id: transactionId }) },
+    token
+  );
+  if (res.status === 401) throw new AuthRequiredError();
+  if (!res.ok) throw new Error(await parseAuthError(res));
+}
+
+export async function unsaveComp(transactionId: string, token: string): Promise<void> {
+  const res = await authedFetch(`/comps/saved/${transactionId}`, { method: "DELETE" }, token);
+  if (res.status === 401) throw new AuthRequiredError();
+  if (!res.ok && res.status !== 204) throw new Error(await parseAuthError(res));
+}
+
 // --- Auth ---
 
 export interface AuthUser {

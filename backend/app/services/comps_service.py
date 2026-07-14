@@ -8,7 +8,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Building, Transaction
+from app.models import Building, SavedComp, Transaction
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
@@ -38,6 +38,25 @@ def _get_embedder():
         return None
 
 
+def _serialize_txn(txn: Transaction, building_name: str | None) -> dict:
+    return {
+        "transaction_id": txn.transaction_id,
+        "building": building_name or txn.building_id,
+        "community": txn.community,
+        "property_type": txn.property_type,
+        "bedrooms": txn.bedrooms,
+        "size_sqft": float(txn.size_sqft) if txn.size_sqft is not None else None,
+        "price": float(txn.price_aed) if txn.price_aed is not None else None,
+        "price_per_sqft": float(txn.price_per_sqft) if txn.price_per_sqft is not None else None,
+        "date": txn.transaction_date.isoformat() if txn.transaction_date else None,
+        # Phase 7: surfaced end-to-end (API -> UI) so a user can always
+        # tell whether a comp is synthetic demo data, the real DLD/Kaggle
+        # open dataset, or (once one exists) a licensed partner feed --
+        # see app/services/data_source.py and README "Data partnership".
+        "data_provenance": txn.data_provenance,
+    }
+
+
 def query_transactions_sql(
     session: Session,
     community: str | None,
@@ -65,27 +84,24 @@ def query_transactions_sql(
     stmt = stmt.order_by(Transaction.transaction_date.desc()).limit(limit)
 
     rows = session.execute(stmt).all()
-    comps = []
-    for txn, building_name in rows:
-        comps.append(
-            {
-                "transaction_id": txn.transaction_id,
-                "building": building_name or txn.building_id,
-                "community": txn.community,
-                "property_type": txn.property_type,
-                "bedrooms": txn.bedrooms,
-                "size_sqft": float(txn.size_sqft) if txn.size_sqft is not None else None,
-                "price": float(txn.price_aed) if txn.price_aed is not None else None,
-                "price_per_sqft": float(txn.price_per_sqft) if txn.price_per_sqft is not None else None,
-                "date": txn.transaction_date.isoformat() if txn.transaction_date else None,
-                # Phase 7: surfaced end-to-end (API -> UI) so a user can always
-                # tell whether a comp is synthetic demo data, the real DLD/Kaggle
-                # open dataset, or (once one exists) a licensed partner feed --
-                # see app/services/data_source.py and README "Data partnership".
-                "data_provenance": txn.data_provenance,
-            }
-        )
-    return comps
+    return [_serialize_txn(txn, building_name) for txn, building_name in rows]
+
+
+def query_transactions_by_ids(session: Session, transaction_ids: list[str]) -> list[dict]:
+    """Looks up specific comps by ID (the watchlist page) rather than by
+    filter -- returned in the order requested, so callers can pass IDs
+    newest-saved-first and get that order back rather than transaction date
+    order. IDs with no matching row (e.g. a very stale save) are dropped
+    rather than raising -- watchlists degrade gracefully, they don't 404."""
+    if not transaction_ids:
+        return []
+    stmt = select(Transaction, Building.name.label("building_name")).join(
+        Building, Transaction.building_id == Building.building_id, isouter=True
+    ).where(Transaction.transaction_id.in_(transaction_ids))
+
+    rows = session.execute(stmt).all()
+    by_id = {txn.transaction_id: _serialize_txn(txn, building_name) for txn, building_name in rows}
+    return [by_id[tid] for tid in transaction_ids if tid in by_id]
 
 
 def _comp_description(comp: dict) -> str:
@@ -132,3 +148,40 @@ def semantic_rerank(comps: list[dict], query: str, top_k: int = 8) -> list[dict]
         ranked = [(c, _recency_score(c)) for c in ranked]
 
     return [c for c, _ in ranked[:top_k]]
+
+
+# --- Saved comps / watchlist ---
+
+
+def save_comp(session: Session, owner_id: int, transaction_id: str) -> None:
+    """Idempotent: saving an already-saved comp is a no-op, not an error --
+    matches seed_db.py's dialect-aware on_conflict_do_nothing upsert pattern
+    rather than a check-then-insert (which would race under concurrent
+    requests from the same user, e.g. a double-click)."""
+    from sqlalchemy.dialects import postgresql, sqlite
+
+    dialect = session.get_bind().dialect.name
+    insert_fn = postgresql.insert if dialect == "postgresql" else sqlite.insert
+    stmt = insert_fn(SavedComp).values(owner_id=owner_id, transaction_id=transaction_id)
+    stmt = stmt.on_conflict_do_nothing(index_elements=["owner_id", "transaction_id"])
+    session.execute(stmt)
+    session.commit()
+
+
+def unsave_comp(session: Session, owner_id: int, transaction_id: str) -> None:
+    session.execute(
+        SavedComp.__table__.delete().where(
+            SavedComp.owner_id == owner_id, SavedComp.transaction_id == transaction_id
+        )
+    )
+    session.commit()
+
+
+def list_saved_transaction_ids(session: Session, owner_id: int) -> list[str]:
+    """Newest-saved first, so the watchlist page shows recent adds up top."""
+    rows = session.execute(
+        select(SavedComp.transaction_id)
+        .where(SavedComp.owner_id == owner_id)
+        .order_by(SavedComp.created_at.desc(), SavedComp.saved_comp_id.desc())
+    ).all()
+    return [r[0] for r in rows]

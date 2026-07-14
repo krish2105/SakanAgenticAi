@@ -12,6 +12,9 @@ import {
   createMemoShareLink,
   revokeMemoShareLink,
   fetchSharedMemo,
+  fetchSavedComps,
+  saveComp,
+  unsaveComp,
   fetchAdminStats,
   fetchAdminUsers,
   setAdminUserTier,
@@ -237,6 +240,55 @@ describe("shareable memo links", () => {
   it("fetchSharedMemo returns null for a revoked or unknown token", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(404, { detail: "This share link is invalid or has been revoked" })));
     expect(await fetchSharedMemo("gone")).toBeNull();
+  });
+});
+
+describe("saved comps / watchlist", () => {
+  beforeEach(() => clearTokens());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("fetchSavedComps GETs /comps/saved", async () => {
+    setTokens("access-1");
+    const fetchMock = vi.fn(async (url: string) => {
+      expect(url).toContain("/comps/saved");
+      return jsonResponse(200, [{ transaction_id: "TXN-1", building: "Marina Gate II" }]);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const saved = await fetchSavedComps("access-1");
+    expect(saved).toHaveLength(1);
+    expect(saved[0].transaction_id).toBe("TXN-1");
+  });
+
+  it("saveComp POSTs the transaction id", async () => {
+    setTokens("access-1");
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toContain("/comps/saved");
+      expect(init?.method).toBe("POST");
+      expect(JSON.parse(init?.body as string)).toEqual({ transaction_id: "TXN-1" });
+      return jsonResponse(201, { transaction_id: "TXN-1", saved: true });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(saveComp("TXN-1", "access-1")).resolves.toBeUndefined();
+  });
+
+  it("saveComp surfaces a 404 for an unknown comp", async () => {
+    setTokens("access-1");
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(404, { detail: "Unknown comp" })));
+    await expect(saveComp("not-real", "access-1")).rejects.toThrow(/Unknown comp/);
+  });
+
+  it("unsaveComp DELETEs by transaction id", async () => {
+    setTokens("access-1");
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toContain("/comps/saved/TXN-1");
+      expect(init?.method).toBe("DELETE");
+      return { ok: false, status: 204, json: async () => ({}) } as Response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(unsaveComp("TXN-1", "access-1")).resolves.toBeUndefined();
   });
 });
 

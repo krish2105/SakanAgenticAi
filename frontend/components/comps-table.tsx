@@ -1,12 +1,16 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SaveCompButton } from "@/components/save-comp-button";
 import { T } from "@/components/t";
+import { useAuth } from "@/components/auth-provider";
 import { capture } from "@/lib/analytics";
 import { downloadCompsCsv } from "@/lib/csv-export";
+import { fetchSavedComps, saveComp, unsaveComp } from "@/lib/api";
 import type { Comp } from "@/lib/types";
 
 /** Phase 7: every comp always shows whether it's demo/synthetic data, the
@@ -46,6 +50,54 @@ export function ProvenanceBadge({ provenance }: { provenance?: string }) {
 }
 
 export function CompsTable({ comps }: { comps: Comp[] }) {
+  const { token } = useAuth();
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+
+    function syncSaved() {
+      if (!token) {
+        setSavedIds(new Set());
+        return;
+      }
+      fetchSavedComps(token)
+        .then((saved) => {
+          if (!cancelled) setSavedIds(new Set(saved.map((c) => c.transaction_id)));
+        })
+        .catch(() => {
+          // Watchlist overlay is best-effort -- a failed fetch just means
+          // every bookmark renders unsaved, not a broken table.
+        });
+    }
+
+    syncSaved();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  function toggleSaved(transactionId: string) {
+    if (!token) return;
+    const wasSaved = savedIds.has(transactionId);
+    setSavedIds((prev) => {
+      const next = new Set(prev);
+      if (wasSaved) next.delete(transactionId);
+      else next.add(transactionId);
+      return next;
+    });
+    capture(wasSaved ? "comp_unsaved" : "comp_saved", { transaction_id: transactionId });
+    const request = wasSaved ? unsaveComp(transactionId, token) : saveComp(transactionId, token);
+    request.catch(() => {
+      setSavedIds((prev) => {
+        const next = new Set(prev);
+        if (wasSaved) next.add(transactionId);
+        else next.delete(transactionId);
+        return next;
+      });
+    });
+  }
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
@@ -83,7 +135,12 @@ export function CompsTable({ comps }: { comps: Comp[] }) {
                 <li key={c.transaction_id} className="rounded-lg border border-border p-3">
                   <div className="flex items-start justify-between gap-2">
                     <p className="min-w-0 truncate font-body text-sm font-medium text-text-primary">{c.building}</p>
-                    <ProvenanceBadge provenance={c.data_provenance} />
+                    <div className="flex shrink-0 items-center gap-1">
+                      <ProvenanceBadge provenance={c.data_provenance} />
+                      {token && (
+                        <SaveCompButton saved={savedIds.has(c.transaction_id)} onToggle={() => toggleSaved(c.transaction_id)} />
+                      )}
+                    </div>
                   </div>
                   <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs">
                     <span className="text-brass">{c.transaction_id}</span>
@@ -123,6 +180,7 @@ export function CompsTable({ comps }: { comps: Comp[] }) {
                   <th className="py-2 font-medium">
                     <T k="comps.colSource" />
                   </th>
+                  {token && <th className="py-2 font-medium" aria-label="Watchlist" />}
                 </tr>
               </thead>
               <tbody className="font-mono text-xs">
@@ -137,6 +195,11 @@ export function CompsTable({ comps }: { comps: Comp[] }) {
                     <td className="py-2">
                       <ProvenanceBadge provenance={c.data_provenance} />
                     </td>
+                    {token && (
+                      <td className="py-2">
+                        <SaveCompButton saved={savedIds.has(c.transaction_id)} onToggle={() => toggleSaved(c.transaction_id)} />
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

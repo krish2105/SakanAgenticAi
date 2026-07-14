@@ -6,9 +6,11 @@ import { Download } from "lucide-react";
 import { CompsFilterBar, type CompsFilters } from "@/components/comps-filter-bar";
 import { ProvenanceBadge } from "@/components/comps-table";
 import { Button } from "@/components/ui/button";
+import { SaveCompButton } from "@/components/save-comp-button";
 import { T } from "@/components/t";
+import { useAuth } from "@/components/auth-provider";
 import { useLocale } from "@/components/locale-provider";
-import { fetchComps } from "@/lib/api";
+import { fetchComps, fetchSavedComps, saveComp, unsaveComp } from "@/lib/api";
 import { capture } from "@/lib/analytics";
 import { downloadCompsCsv } from "@/lib/csv-export";
 import { cn } from "@/lib/utils";
@@ -25,10 +27,12 @@ const CompsMap = dynamic(() => import("@/components/comps-map").then((m) => m.Co
 
 export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) {
   const { t } = useLocale();
+  const { token } = useAuth();
   const [filters, setFilters] = useState<CompsFilters>({ community: "", type: "", bedrooms: "" });
   const [comps, setComps] = useState<Comp[]>(initialComps);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -53,6 +57,52 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
       cancelled = true;
     };
   }, [filters]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    function syncSaved() {
+      if (!token) {
+        setSavedIds(new Set());
+        return;
+      }
+      fetchSavedComps(token)
+        .then((saved) => {
+          if (!cancelled) setSavedIds(new Set(saved.map((c) => c.transaction_id)));
+        })
+        .catch(() => {
+          // Watchlist state is a nice-to-have overlay -- a failed fetch just
+          // means every bookmark renders unsaved, not a broken page.
+        });
+    }
+
+    syncSaved();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  function toggleSaved(transactionId: string) {
+    if (!token) return;
+    const wasSaved = savedIds.has(transactionId);
+    setSavedIds((prev) => {
+      const next = new Set(prev);
+      if (wasSaved) next.delete(transactionId);
+      else next.add(transactionId);
+      return next;
+    });
+    capture(wasSaved ? "comp_unsaved" : "comp_saved", { transaction_id: transactionId });
+    const request = wasSaved ? unsaveComp(transactionId, token) : saveComp(transactionId, token);
+    request.catch(() => {
+      // Revert the optimistic update on failure.
+      setSavedIds((prev) => {
+        const next = new Set(prev);
+        if (wasSaved) next.add(transactionId);
+        else next.delete(transactionId);
+        return next;
+      });
+    });
+  }
 
   return (
     <div className="flex h-full flex-col gap-4 px-6 py-6">
@@ -110,7 +160,15 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
                     <p className="truncate font-body text-sm font-medium text-text-primary">{c.building}</p>
                     <p className="truncate text-xs text-text-muted">{c.community}</p>
                   </div>
-                  <ProvenanceBadge provenance={c.data_provenance} />
+                  <div className="flex items-center gap-1">
+                    <ProvenanceBadge provenance={c.data_provenance} />
+                    {token && (
+                      <SaveCompButton
+                        saved={savedIds.has(c.transaction_id)}
+                        onToggle={() => toggleSaved(c.transaction_id)}
+                      />
+                    )}
+                  </div>
                 </div>
                 <div className="mt-2 flex items-center justify-between font-mono text-xs">
                   <span className="text-brass">{c.transaction_id}</span>
@@ -132,6 +190,7 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
                 <th className="px-3 py-2 font-medium">
                   <T k="comps.colSource" />
                 </th>
+                {token && <th className="px-3 py-2 font-medium" aria-label="Watchlist" />}
               </tr>
             </thead>
             <tbody className="font-mono text-xs">
@@ -152,6 +211,14 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
                   <td className="px-3 py-2">
                     <ProvenanceBadge provenance={c.data_provenance} />
                   </td>
+                  {token && (
+                    <td className="px-3 py-2">
+                      <SaveCompButton
+                        saved={savedIds.has(c.transaction_id)}
+                        onToggle={() => toggleSaved(c.transaction_id)}
+                      />
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

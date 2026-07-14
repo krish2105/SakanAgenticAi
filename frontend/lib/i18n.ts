@@ -33,6 +33,7 @@ const en: Dict = {
   "nav.comps": "Comps Explorer",
   "nav.analytics": "Analytics",
   "nav.deals": "My Deals",
+  "nav.saved": "Saved",
   "nav.billing": "Billing",
 
   "home.eyebrow": "Deal Intelligence Terminal",
@@ -160,6 +161,7 @@ const ar: Dict = {
   "nav.comps": "مستكشف المقارنات",
   "nav.analytics": "التحليلات",
   "nav.deals": "صفقاتي",
+  "nav.saved": "المحفوظات",
   "nav.billing": "الفوترة",
 
   "home.eyebrow": "منصة تحليل الصفقات العقارية",

@@ -104,6 +104,53 @@ def test_comps_endpoint_filters_seeded_data(seeded_sqlite_db):
             assert c["bedrooms"] == 2
 
 
+def test_saved_comps_watchlist_lifecycle(seeded_sqlite_db):
+    with TestClient(app) as client:
+        alice = _register(client, "watchlist-alice@example.com")
+        bob = _register(client, "watchlist-bob@example.com")
+
+        some_comp = client.get("/comps", params={"limit": 1}).json()[0]
+        txn_id = some_comp["transaction_id"]
+
+        assert client.get("/comps/saved", headers=alice).json() == []
+
+        save = client.post("/comps/saved", json={"transaction_id": txn_id}, headers=alice)
+        assert save.status_code == 201
+        assert save.json() == {"transaction_id": txn_id, "saved": True}
+
+        # Saving twice is idempotent, not a conflict error.
+        save_again = client.post("/comps/saved", json={"transaction_id": txn_id}, headers=alice)
+        assert save_again.status_code == 201
+
+        saved_list = client.get("/comps/saved", headers=alice).json()
+        assert len(saved_list) == 1
+        assert saved_list[0]["transaction_id"] == txn_id
+        assert saved_list[0]["community"] == some_comp["community"]
+
+        # Bob's watchlist is independent of Alice's.
+        assert client.get("/comps/saved", headers=bob).json() == []
+
+        remove = client.delete(f"/comps/saved/{txn_id}", headers=alice)
+        assert remove.status_code == 204
+        assert client.get("/comps/saved", headers=alice).json() == []
+
+        # Removing something never saved is still a clean 204, not an error.
+        assert client.delete(f"/comps/saved/{txn_id}", headers=alice).status_code == 204
+
+
+def test_saved_comps_requires_auth(seeded_sqlite_db):
+    with TestClient(app) as client:
+        assert client.get("/comps/saved").status_code == 401
+        assert client.post("/comps/saved", json={"transaction_id": "TXN-000001"}).status_code == 401
+
+
+def test_save_unknown_comp_404s(seeded_sqlite_db):
+    with TestClient(app) as client:
+        headers = _register(client, "watchlist-unknown@example.com")
+        res = client.post("/comps/saved", json={"transaction_id": "not-a-real-txn-id"}, headers=headers)
+        assert res.status_code == 404
+
+
 def test_market_ticker_and_trends(seeded_sqlite_db):
     with TestClient(app) as client:
         ticker = client.get("/market/ticker", params={"limit": 5}).json()
