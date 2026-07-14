@@ -8,6 +8,7 @@
 const SakanAPI = (() => {
   const DEFAULT_BACKEND_URL = "http://localhost:8000";
   const TOKEN_KEY = "sakan_ext_token";
+  const REFRESH_TOKEN_KEY = "sakan_ext_refresh_token";
   const BACKEND_URL_KEY = "sakan_ext_backend_url";
 
   async function getBackendUrl() {
@@ -24,12 +25,17 @@ const SakanAPI = (() => {
     return token || null;
   }
 
-  async function setToken(token) {
-    await chrome.storage.local.set({ [TOKEN_KEY]: token });
+  async function getRefreshToken() {
+    const { [REFRESH_TOKEN_KEY]: token } = await chrome.storage.local.get(REFRESH_TOKEN_KEY);
+    return token || null;
+  }
+
+  async function setTokens(accessToken, refreshToken) {
+    await chrome.storage.local.set({ [TOKEN_KEY]: accessToken, [REFRESH_TOKEN_KEY]: refreshToken });
   }
 
   async function clearToken() {
-    await chrome.storage.local.remove(TOKEN_KEY);
+    await chrome.storage.local.remove([TOKEN_KEY, REFRESH_TOKEN_KEY]);
   }
 
   async function login(email, password) {
@@ -44,15 +50,57 @@ const SakanAPI = (() => {
       throw new Error(body.detail || `Login failed (${res.status})`);
     }
     const data = await res.json();
-    await setToken(data.access_token);
+    await setTokens(data.access_token, data.refresh_token);
     return data.access_token;
+  }
+
+  /** One-shot silent refresh: exchanges the stored refresh token for a new
+   * access/refresh pair (the backend rotates refresh tokens on every use --
+   * see app/routers/auth.py's /refresh). Access tokens are short-lived
+   * (Phase 3 of the MVP roadmap, 60 minutes by default) so without this a
+   * session signed in more than an hour ago would 401 on its next call and
+   * force a fresh sign-in every time. Returns the new access token, or null
+   * if the refresh token is itself invalid/expired (caller should treat
+   * that as "signed out"). */
+  async function refreshAccessToken() {
+    const refreshToken = await getRefreshToken();
+    if (!refreshToken) return null;
+    const base = await getBackendUrl();
+    const res = await fetch(`${base}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) {
+      await clearToken();
+      return null;
+    }
+    const data = await res.json();
+    await setTokens(data.access_token, data.refresh_token);
+    return data.access_token;
+  }
+
+  /** Wraps an authenticated fetch with a single silent-refresh retry on 401
+   * -- mirrors frontend/lib/api.ts's authedFetch, scaled down to this
+   * extension's much smaller API surface (two authenticated calls). */
+  async function authedFetch(path, init = {}) {
+    const base = await getBackendUrl();
+    let token = await getToken();
+    const doFetch = (bearer) =>
+      fetch(`${base}${path}`, { ...init, headers: { ...(init.headers || {}), Authorization: `Bearer ${bearer}` } });
+
+    let res = await doFetch(token || "");
+    if (res.status === 401) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) res = await doFetch(refreshed);
+    }
+    return res;
   }
 
   async function me() {
     const token = await getToken();
     if (!token) return null;
-    const base = await getBackendUrl();
-    const res = await fetch(`${base}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await authedFetch("/auth/me");
     if (!res.ok) return null;
     return res.json();
   }
@@ -71,10 +119,9 @@ const SakanAPI = (() => {
   async function submitDealQuery(rawQuery) {
     const token = await getToken();
     if (!token) throw new Error("Sign in first to run a full deal check.");
-    const base = await getBackendUrl();
-    const res = await fetch(`${base}/deals/query`, {
+    const res = await authedFetch("/deals/query", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ raw_query: rawQuery }),
     });
     if (res.status === 401) {
@@ -104,7 +151,9 @@ const SakanAPI = (() => {
     getBackendUrl,
     setBackendUrl,
     getToken,
-    setToken,
+    getRefreshToken,
+    setTokens,
+    refreshAccessToken,
     clearToken,
     login,
     me,
