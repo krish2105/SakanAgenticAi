@@ -151,7 +151,13 @@ async def get_deal_memo(query_id: str, format: str = "json", current_user: User 
         raise HTTPException(status_code=404, detail="Memo not yet generated for this deal")
 
     if format == "pdf":
-        pdf_bytes = markdown_to_pdf_bytes(memo_markdown)
+        state = row["deal_state"]
+        valuation = {
+            "low": state.get("valuation_low"),
+            "high": state.get("valuation_high"),
+            "comps": state.get("retrieved_comps") or [],
+        }
+        pdf_bytes = markdown_to_pdf_bytes(memo_markdown, valuation=valuation)
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",

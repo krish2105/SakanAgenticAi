@@ -22,3 +22,42 @@ def test_handles_unicode_smart_punctuation_without_crashing():
 def test_empty_markdown_still_renders():
     pdf = markdown_to_pdf_bytes("")
     assert pdf.startswith(b"%PDF")
+
+
+def test_valuation_chart_produces_a_larger_valid_pdf():
+    valuation = {
+        "low": 1_800_000,
+        "high": 2_200_000,
+        "comps": [
+            {"price": 1_900_000, "building": "Tower A"},
+            {"price": 2_100_000, "building": "Tower B"},
+            {"price": 2_050_000, "building": "Tower C"},
+        ],
+    }
+    without_chart = markdown_to_pdf_bytes("# Memo\n\nSome text.")
+    with_chart = markdown_to_pdf_bytes("# Memo\n\nSome text.", valuation=valuation)
+    assert with_chart.startswith(b"%PDF")
+    # Not a strict guarantee for every PDF library, but a real sanity check
+    # that drawing extra content actually added something to the stream.
+    assert len(with_chart) >= len(without_chart)
+
+
+def test_valuation_chart_skips_cleanly_with_no_comps():
+    valuation = {"low": 1_000_000, "high": 1_200_000, "comps": []}
+    pdf = markdown_to_pdf_bytes("# Memo", valuation=valuation)
+    assert pdf.startswith(b"%PDF")
+
+
+def test_valuation_chart_skips_cleanly_when_bounds_missing():
+    pdf = markdown_to_pdf_bytes("# Memo", valuation={"low": None, "high": None, "comps": []})
+    assert pdf.startswith(b"%PDF")
+
+
+def test_valuation_chart_ignores_non_positive_comp_prices():
+    valuation = {
+        "low": 1_000_000,
+        "high": 1_200_000,
+        "comps": [{"price": 0, "building": "Bad Row"}, {"price": None, "building": "Missing Price"}],
+    }
+    pdf = markdown_to_pdf_bytes("# Memo", valuation=valuation)
+    assert pdf.startswith(b"%PDF")

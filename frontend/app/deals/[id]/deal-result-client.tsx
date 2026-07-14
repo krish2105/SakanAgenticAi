@@ -239,6 +239,7 @@ export function DealResultClient({ queryId }: { queryId: string }) {
                   high={deal.valuation_high}
                   method={deal.valuation_method}
                   rationale={deal.valuation_rationale}
+                  comps={deal.retrieved_comps}
                 />
                 <ComplianceCard
                   summary={deal.compliance_summary}
