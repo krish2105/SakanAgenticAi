@@ -8,6 +8,10 @@ import {
   loginUser,
   fetchDeals,
   retryDealQuery,
+  fetchAdminStats,
+  fetchAdminUsers,
+  setAdminUserTier,
+  fetchAdminQueryVolume,
   AuthRequiredError,
 } from "@/lib/api";
 
@@ -133,5 +137,73 @@ describe("retryDealQuery", () => {
     );
 
     await expect(retryDealQuery("42", "access-1")).rejects.toThrow(/current status: done/);
+  });
+});
+
+describe("admin API functions", () => {
+  beforeEach(() => clearTokens());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("fetchAdminStats GETs /admin/stats", async () => {
+    setTokens("access-1");
+    const fetchMock = vi.fn(async (url: string) => {
+      expect(url).toContain("/admin/stats");
+      return jsonResponse(200, { total_users: 5, verified_users: 2, total_deals: 10, users_by_tier: {} });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const stats = await fetchAdminStats("access-1");
+    expect(stats.total_users).toBe(5);
+  });
+
+  it("fetchAdminUsers forwards q/limit/offset as query params", async () => {
+    setTokens("access-1");
+    const fetchMock = vi.fn(async (url: string) => {
+      expect(url).toContain("/admin/users?");
+      expect(url).toContain("q=alice");
+      expect(url).toContain("limit=25");
+      expect(url).toContain("offset=0");
+      return jsonResponse(200, { total: 1, limit: 25, offset: 0, users: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const page = await fetchAdminUsers("access-1", { q: "alice" });
+    expect(page.total).toBe(1);
+  });
+
+  it("setAdminUserTier PATCHes the tier endpoint", async () => {
+    setTokens("access-1");
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toContain("/admin/users/7/tier");
+      expect(init?.method).toBe("PATCH");
+      expect(init?.body).toBe(JSON.stringify({ tier: "pro" }));
+      return jsonResponse(200, { user_id: 7, tier: "pro" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await setAdminUserTier(7, "pro", "access-1");
+    expect(result).toEqual({ user_id: 7, tier: "pro" });
+  });
+
+  it("setAdminUserTier surfaces a 400 for an unknown tier", async () => {
+    setTokens("access-1");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(400, { detail: "Unknown tier 'diamond'. Valid: ['enterprise', ...]" }))
+    );
+
+    await expect(setAdminUserTier(7, "diamond", "access-1")).rejects.toThrow(/Unknown tier/);
+  });
+
+  it("fetchAdminQueryVolume GETs /admin/query-volume with days param", async () => {
+    setTokens("access-1");
+    const fetchMock = vi.fn(async (url: string) => {
+      expect(url).toContain("/admin/query-volume?days=30");
+      return jsonResponse(200, [{ day: "2026-07-01", count: 3 }]);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const volume = await fetchAdminQueryVolume("access-1", 30);
+    expect(volume).toEqual([{ day: "2026-07-01", count: 3 }]);
   });
 });

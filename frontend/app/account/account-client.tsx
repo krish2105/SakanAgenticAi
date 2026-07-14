@@ -51,6 +51,13 @@ export function AccountClient() {
                     My deals
                   </Button>
                 </Link>
+                {user.role === "Admin" && (
+                  <Link href="/admin">
+                    <Button variant="outline" size="sm">
+                      Admin dashboard
+                    </Button>
+                  </Link>
+                )}
                 <Button variant="ghost" size="sm" onClick={() => logout()}>
                   Sign out
                 </Button>

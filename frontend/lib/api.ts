@@ -393,3 +393,66 @@ export async function downloadDealMemoPdf(queryId: string, token: string): Promi
   link.remove();
   URL.revokeObjectURL(url);
 }
+
+// --- Admin (Phase 10b) -------------------------------------------------
+
+export interface AdminStats {
+  total_users: number;
+  verified_users: number;
+  total_deals: number;
+  users_by_tier: Record<string, number>;
+}
+
+export interface AdminUser {
+  user_id: number;
+  email: string;
+  full_name: string | null;
+  role: string;
+  tier: string;
+  email_verified: boolean;
+  subscription_status: string | null;
+  created_at: string | null;
+}
+
+export interface AdminUsersPage {
+  total: number;
+  limit: number;
+  offset: number;
+  users: AdminUser[];
+}
+
+export interface AdminQueryVolumeDay {
+  day: string;
+  count: number;
+}
+
+/** All four admin_* functions throw AuthRequiredError on a 401 (same as
+ * authedGet) and a generic Error on a 403 (not signed in as an Admin) --
+ * callers distinguish "not logged in" from "logged in but not authorized". */
+export async function fetchAdminStats(token: string): Promise<AdminStats> {
+  return authedGet<AdminStats>("/admin/stats", token);
+}
+
+export async function fetchAdminUsers(
+  token: string,
+  { q, limit = 25, offset = 0 }: { q?: string; limit?: number; offset?: number } = {}
+): Promise<AdminUsersPage> {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (q) params.set("q", q);
+  return authedGet<AdminUsersPage>(`/admin/users?${params.toString()}`, token);
+}
+
+export async function setAdminUserTier(userId: number, tier: string, token: string): Promise<AdminUser> {
+  const res = await authedFetch(
+    `/admin/users/${userId}/tier`,
+    { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tier }) },
+    token
+  );
+  if (res.status === 401) throw new AuthRequiredError();
+  if (!res.ok) throw new Error(await parseAuthError(res));
+  return res.json();
+}
+
+export async function fetchAdminQueryVolume(token: string, days = 30): Promise<AdminQueryVolumeDay[]> {
+  return authedGet<AdminQueryVolumeDay[]>(`/admin/query-volume?days=${days}`, token);
+}
