@@ -7,6 +7,27 @@ import type { ComplianceClause } from "@/lib/types";
 
 const UNREVIEWED_CORPUS_FLAG = "unreviewed_regulatory_corpus";
 
+/** Phase 10c: the corpus-level banner already says the whole thing is
+ * unreviewed, but that's easy to read once and forget by the time you're
+ * looking at clause #4 -- so every individual clause repeats its own
+ * review status too, not just the reviewed ones. "Every claim shows its
+ * work" should mean the absence of review is as visible as its presence. */
+function ClauseReviewBadge({ status }: { status?: "unreviewed" | "pending_review" | "reviewed" }) {
+  if (status === "reviewed") return null; // handled by the "reviewed by X" badge below
+  if (status === "pending_review") {
+    return (
+      <Badge variant="default" className="ml-1.5 align-middle">
+        <T k="compliance.pendingReview" />
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="muted" className="ml-1.5 align-middle">
+      <T k="compliance.unreviewed" />
+    </Badge>
+  );
+}
+
 export function ComplianceCard({
   summary,
   flags,
@@ -73,7 +94,9 @@ export function ComplianceCard({
                     <Badge variant="positive" className="ml-1.5 align-middle">
                       <T k="compliance.reviewedBy" /> {c.reviewed_by}
                     </Badge>
-                  ) : null}
+                  ) : (
+                    <ClauseReviewBadge status={c.review_status} />
+                  )}
                 </li>
               ))}
             </ul>

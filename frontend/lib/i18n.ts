@@ -94,6 +94,8 @@ const en: Dict = {
   "compliance.notYetChecked": "Not yet checked.",
   "compliance.retrievedClauses": "Retrieved clauses",
   "compliance.reviewedBy": "reviewed —",
+  "compliance.unreviewed": "unreviewed",
+  "compliance.pendingReview": "pending review",
   "compliance.disclaimer":
     "Every clause behind this answer is AI-drafted and has not been reviewed by a licensed legal partner. Treat this as a starting point for manual RERA verification, not legal advice.",
 
@@ -214,6 +216,8 @@ const ar: Dict = {
   "compliance.notYetChecked": "لم يُفحص بعد.",
   "compliance.retrievedClauses": "البنود المسترجعة",
   "compliance.reviewedBy": "روجعت بواسطة —",
+  "compliance.unreviewed": "غير مراجَع",
+  "compliance.pendingReview": "قيد المراجعة",
   "compliance.disclaimer":
     "كل بند وراء هذه الإجابة تمت صياغته بواسطة الذكاء الاصطناعي ولم تتم مراجعته من قِبل شريك قانوني مرخّص. اعتبر هذا نقطة انطلاق للتحقق اليدوي من هيئة التنظيم العقاري (RERA)، وليس استشارة قانونية.",
 
