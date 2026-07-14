@@ -15,10 +15,10 @@ no such feed exists yet.
 Every transaction this app has ever loaded carries a `data_provenance`
 value (`synthetic` | `dld_kaggle` | `licensed_partner`) on the `transactions`
 table so a consumer can always tell which kind of number it's looking at
--- see `backend/scripts/migrate_add_data_provenance.py` for bringing an
-existing database up to date, and `backend/scripts/seed_db.py`'s
-`--provenance` flag / `map_dld_columns.py`'s hardcoded tag for how it gets
-set on load.
+-- Alembic (backend/migrations/) owns bringing an existing database's schema
+up to date, and `backend/scripts/seed_db.py`'s `--provenance` flag /
+`--dld-mapped-csv` / `--licensed-feed` / `map_dld_columns.py`'s hardcoded
+tag for how it gets set on load.
 """
 from __future__ import annotations
 

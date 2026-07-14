@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.db import get_engine  # noqa: E402
 from app.models import Base, Developer, Building, OffPlanProject, Transaction  # noqa: E402
+from app.services.data_source import get_data_source  # noqa: E402
 
 
 def read_csv(path: Path) -> list[dict]:
@@ -102,7 +103,13 @@ def upsert(session, model, rows: list[dict], pk_col: str) -> int:
     return len(rows)
 
 
-def run(seed_dir: Path, database_url: str | None, provenance: str = "synthetic") -> dict[str, int]:
+def run(
+    seed_dir: Path,
+    database_url: str | None,
+    provenance: str = "synthetic",
+    dld_mapped_csv: Path | None = None,
+    licensed_feed: bool = False,
+) -> dict[str, int]:
     engine = get_engine(database_url) if database_url else get_engine()
     Base.metadata.create_all(
         engine,
@@ -115,7 +122,6 @@ def run(seed_dir: Path, database_url: str | None, provenance: str = "synthetic")
         ("developers.csv", Developer, coerce_developer, "developer_id"),
         ("buildings.csv", Building, coerce_building, "building_id"),
         ("off_plan_projects.csv", OffPlanProject, coerce_off_plan_project, "project_id"),
-        ("transactions.csv", Transaction, lambda r: coerce_transaction(r, provenance), "transaction_id"),
     ]
 
     counts: dict[str, int] = {}
@@ -127,6 +133,30 @@ def run(seed_dir: Path, database_url: str | None, provenance: str = "synthetic")
             rows = [coerce(r) for r in read_csv(csv_path)]
             counts[filename] = upsert(session, model, rows, pk_col)
             session.commit()
+
+        # Transactions load through app/services/data_source.py's
+        # DataSourceProvider abstraction when a real (non-synthetic) source
+        # is requested -- this is the one place in the codebase that
+        # actually exercises DldKaggleDataSource/LicensedFeedDataSource
+        # end-to-end; previously nothing did, only their own unit tests.
+        # The default path (no flags) is untouched: still the plain
+        # seed-dir CSV + --provenance tagging convenience used for local
+        # dev/demo data, since SyntheticDataSource always tags "synthetic"
+        # unconditionally and would silently override an explicit
+        # --provenance demo tag if routed through it here.
+        if dld_mapped_csv is not None:
+            source = get_data_source("dld_kaggle", mapped_csv_path=dld_mapped_csv)
+            rows = [coerce_transaction(r) for r in source.fetch_transactions()]
+        elif licensed_feed:
+            source = get_data_source("licensed_partner")
+            rows = [coerce_transaction(r) for r in source.fetch_transactions()]
+        else:
+            csv_path = seed_dir / "transactions.csv"
+            if not csv_path.exists():
+                raise SystemExit(f"Missing {csv_path}. Run generate_dataset.py first.")
+            rows = [coerce_transaction(r, provenance) for r in read_csv(csv_path)]
+        counts["transactions.csv"] = upsert(session, Transaction, rows, "transaction_id")
+        session.commit()
 
     return counts
 
@@ -140,11 +170,28 @@ def main() -> None:
         type=str,
         default="synthetic",
         choices=["synthetic", "dld_kaggle", "licensed_partner"],
-        help="Tags every loaded transaction's data_provenance column (ignored for rows whose CSV already sets one, e.g. map_dld_columns.py's output).",
+        help="Tags every loaded transaction's data_provenance column (ignored for rows whose CSV already sets one, e.g. map_dld_columns.py's output). "
+        "Ignored if --dld-mapped-csv or --licensed-feed is given -- those tag rows themselves.",
+    )
+    parser.add_argument(
+        "--dld-mapped-csv",
+        type=Path,
+        default=None,
+        help="Load transactions from a map_dld_columns.py-mapped DLD/Kaggle CSV via DataSourceProvider "
+        "instead of --seed-dir/transactions.csv (data_provenance=dld_kaggle, tagged automatically).",
+    )
+    parser.add_argument(
+        "--licensed-feed",
+        action="store_true",
+        help="Load transactions from the configured licensed data feed (LICENSED_DATA_FEED_URL/API_KEY) "
+        "instead of --seed-dir/transactions.csv (data_provenance=licensed_partner, tagged automatically).",
     )
     args = parser.parse_args()
 
-    counts = run(args.seed_dir, args.database_url, args.provenance)
+    if args.dld_mapped_csv and args.licensed_feed:
+        raise SystemExit("--dld-mapped-csv and --licensed-feed are mutually exclusive.")
+
+    counts = run(args.seed_dir, args.database_url, args.provenance, args.dld_mapped_csv, args.licensed_feed)
     for filename, n in counts.items():
         print(f"{filename}: {n} rows upserted")
 

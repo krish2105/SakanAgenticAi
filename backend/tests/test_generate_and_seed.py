@@ -74,3 +74,55 @@ def test_seed_db_tags_provenance_via_flag(tmp_path):
     with Session(engine) as session:
         n = session.scalar(select(func.count()).select_from(Transaction).where(Transaction.data_provenance == "dld_kaggle"))
         assert n == 600
+
+
+def test_seed_db_loads_transactions_via_dld_mapped_csv(tmp_path):
+    """Phase 12a: seed_db.py's transaction step routes through
+    app/services/data_source.py's DldKaggleDataSource when --dld-mapped-csv
+    is given, instead of the default seed-dir/transactions.csv path --
+    this is the one place in the codebase that actually exercises that
+    class end-to-end (previously only its own unit test did)."""
+    seed_dir = Path(__file__).resolve().parents[1] / "seed_data"
+    db_path = tmp_path / "seed_dld_mapped_test.db"
+    database_url = f"sqlite:///{db_path}"
+
+    mapped_csv = tmp_path / "dld_mapped.csv"
+    mapped_csv.write_text(
+        "transaction_id,building_id,community,property_type,bedrooms,size_sqft,price_aed,"
+        "price_per_sqft,transaction_type,transaction_date,registration_type,buyer_type\n"
+        "TXN-DLD-001,BLDG-001,Dubai Marina,Apartment,2,1200,2500000,2083.33,Sale,2026-01-15,Off-Plan,Individual\n"
+    )
+
+    seed_run(seed_dir, database_url, dld_mapped_csv=mapped_csv)
+
+    engine = create_engine(database_url, future=True)
+    with Session(engine) as session:
+        # Only the one row from the mapped CSV -- not the 600-row synthetic
+        # seed_dir/transactions.csv, confirming it really took the
+        # DataSourceProvider path instead of the default.
+        rows = session.scalars(select(Transaction)).all()
+        assert len(rows) == 1
+        assert rows[0].transaction_id == "TXN-DLD-001"
+        assert rows[0].data_provenance == "dld_kaggle"
+        assert rows[0].price_aed == 2500000.0
+
+
+def test_seed_db_licensed_feed_flag_reaches_licensed_data_source(tmp_path, monkeypatch):
+    """--licensed-feed with no LICENSED_DATA_FEED_URL configured must fail
+    the same clear way calling LicensedFeedDataSource directly would --
+    confirms the flag actually reaches that class, not a silent no-op."""
+    seed_dir = Path(__file__).resolve().parents[1] / "seed_data"
+    db_path = tmp_path / "seed_licensed_test.db"
+    database_url = f"sqlite:///{db_path}"
+
+    import app.services.data_source as data_source_module
+
+    monkeypatch.setattr(data_source_module.config, "LICENSED_DATA_FEED_URL", None)
+
+    try:
+        seed_run(seed_dir, database_url, licensed_feed=True)
+        raised = False
+    except RuntimeError as exc:
+        raised = True
+        assert "No licensed data partnership is configured" in str(exc)
+    assert raised

@@ -329,8 +329,9 @@ what's implemented-but-unexercised:
   this month` rendered from a real `/billing/me` call, clicked "Upgrade to
   Pro," and watched the frontend surface Stripe's real "not configured" 501
   as a clean on-page error — this is also how the billing-column schema-drift
-  gap got caught and fixed (see `migrate_billing_columns.py` below) before it
-  could repeat the `owner_id` incident.
+  gap got caught and fixed before it could repeat the `owner_id` incident
+  (the one-off fix script from that incident was later retired into the
+  Alembic baseline once migrations were adopted; see "Deploying to Render").
 - The eval suite (`python scripts/run_evals.py`) against the real seeded
   dataset: it's what caught the fixed +/-7% fallback-valuation band
   under-covering real held-out sale prices (4.4% band coverage) before this
@@ -685,29 +686,35 @@ real answer before anything else matters").
 defines a `DataSourceProvider` interface with three implementations:
 
 - `SyntheticDataSource` — this repo's default, wraps the committed seed CSVs.
-- `DldKaggleDataSource` — wraps `map_dld_columns.py`'s output: real DLD/Dubai
-  Pulse transaction data via a Kaggle mirror, which is real data but not a
-  licensed partnership.
+  Not used by `seed_db.py`'s default path (see below) to avoid a provenance-
+  tagging conflict, but exercised directly wherever a caller wants a real
+  `DataSourceProvider` for synthetic data (e.g. tests).
+- `DldKaggleDataSource` — expects a CSV already shaped like `coerce_transaction()`'s
+  input (see `seed_db.py`), tagged `dld_kaggle` automatically. Note:
+  `map_dld_columns.py` (below) is the actual recommended path for loading
+  real DLD/Kaggle data today — it writes straight to Postgres via its own
+  pandas pipeline and doesn't produce an intermediate CSV in this shape.
+  `DldKaggleDataSource` is for a *different* mapped-CSV-in-hand scenario;
+  reach it via `seed_db.py --dld-mapped-csv <path>` (Phase 11's roadmap
+  reconciled this into a real, tested code path instead of only its own
+  unit test exercising the class).
 - `LicensedFeedDataSource` — a stub for an actual data partnership (DLD's
   official channel, a portal like Bayut/Property Finder, or a brokerage
   data-sharing agreement). Raises a clear error if selected without
   `LICENSED_DATA_FEED_URL` configured, rather than silently returning
-  nothing or fabricating rows. **Never called against a real feed** — no
-  such feed exists, so its HTTP-call shape is covered by a monkeypatched
-  test, not a live integration.
+  nothing or fabricating rows. Reachable via `seed_db.py --licensed-feed`.
+  **Never called against a real feed** — no such feed exists, so its
+  HTTP-call shape is covered by a monkeypatched test, not a live integration.
 
 Every `transactions` row carries a `data_provenance` column
 (`synthetic` / `dld_kaggle` / `licensed_partner`) so any consumer can tell
 which kind of number it's looking at — set automatically by `seed_db.py`'s
-`--provenance` flag and hardcoded in `map_dld_columns.py`'s output.
-Existing databases need
-[`backend/scripts/migrate_add_data_provenance.py`](./backend/scripts/migrate_add_data_provenance.py)
-run once (idempotent; backfills existing rows as `synthetic`) — same
-schema-drift category as the earlier `owner_id` and billing-column
-incidents, and this time caught and fixed *before* it could repeat: run
-for real against this session's own sandbox Postgres (600 pre-existing
-rows correctly backfilled to `synthetic`, confirmed via `psql` and a live
-`/comps` query afterward), not just reasoned through.
+`--provenance` flag (default path) or `--dld-mapped-csv`/`--licensed-feed`
+(via `DataSourceProvider`), and hardcoded in `map_dld_columns.py`'s direct
+DB writes. Alembic (see "Deploying to Render") owns bringing an existing
+database's schema up to date now — the one-off `migrate_add_data_provenance.py`
+script this section used to reference was retired into the Alembic baseline
+once migrations were adopted; it no longer exists as a separate file.
 
 When a real partnership exists, swapping it in is: implement
 `LicensedFeedDataSource.fetch_transactions()` for the real API shape, set
