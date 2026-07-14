@@ -164,6 +164,32 @@ export async function fetchOffPlanFunnel(): Promise<OffPlanFunnelEntry[]> {
   return safeGet<OffPlanFunnelEntry[]>("/market/off-plan-funnel", DEMO_FUNNEL);
 }
 
+// --- Status page (Phase 18) ---
+
+export interface ReadinessCheck {
+  ok: boolean;
+  detail: string;
+}
+
+export interface ReadinessReport {
+  reachable: boolean;
+  ready: boolean;
+  checks: Record<string, ReadinessCheck>;
+}
+
+/** Unlike safeGet, a non-2xx response (readyz returns 503 when not ready) is
+ * real data here, not a failure to fall back from -- only an unreachable
+ * backend (network error) counts as "reachable: false". */
+export async function fetchReadiness(): Promise<ReadinessReport> {
+  try {
+    const res = await fetch(`${API_BASE}/readyz`, { cache: "no-store" });
+    const body = await res.json();
+    return { reachable: true, ready: Boolean(body.ready), checks: body.checks || {} };
+  } catch {
+    return { reachable: false, ready: false, checks: {} };
+  }
+}
+
 export async function fetchComps(params: Record<string, string | number | undefined>): Promise<Comp[]> {
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {

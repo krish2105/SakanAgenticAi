@@ -40,6 +40,11 @@ export function SiteFooter() {
                   <T k="footer.guides" />
                 </Link>
               </li>
+              <li>
+                <Link href="/status" className="hover:text-text-primary">
+                  <T k="footer.status" />
+                </Link>
+              </li>
             </ul>
           </div>
 

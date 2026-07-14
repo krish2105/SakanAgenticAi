@@ -16,6 +16,7 @@ import {
   acceptTeamInvite,
   fetchTeamMembers,
   removeTeamMember,
+  fetchReadiness,
   AuthRequiredError,
 } from "@/lib/api";
 
@@ -287,5 +288,35 @@ describe("team billing API functions", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(removeTeamMember(7, "access-1")).resolves.toBeUndefined();
+  });
+});
+
+describe("fetchReadiness", () => {
+  it("treats a 503 (not ready) response as real data, not a fetch failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(503, { ready: false, checks: { database: { ok: false, detail: "error: timeout" } } })
+      )
+    );
+
+    const report = await fetchReadiness();
+    expect(report).toEqual({
+      reachable: true,
+      ready: false,
+      checks: { database: { ok: false, detail: "error: timeout" } },
+    });
+  });
+
+  it("reports reachable: false only on a genuine network failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("network down");
+      })
+    );
+
+    const report = await fetchReadiness();
+    expect(report).toEqual({ reachable: false, ready: false, checks: {} });
   });
 });
