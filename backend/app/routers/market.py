@@ -3,13 +3,21 @@ from __future__ import annotations
 from fastapi import APIRouter
 from sqlalchemy import func, select
 
+from app.cache import cached
 from app.db import get_session_factory
 from app.models import Building, Developer, OffPlanProject, Transaction
 
 router = APIRouter(prefix="/market", tags=["market"])
 
+# Real-estate aggregates don't need second-by-second freshness -- a short TTL
+# absorbs repeated identical requests (the ticker in particular polls) without
+# ever recomputing a Postgres GROUP BY more than once per window.
+_TICKER_TTL_SECONDS = 30
+_TRENDS_TTL_SECONDS = 60
+
 
 @router.get("/ticker")
+@cached(ttl_seconds=_TICKER_TTL_SECONDS)
 async def market_ticker(limit: int = 20) -> list[dict]:
     session_factory = get_session_factory()
     with session_factory() as session:
@@ -34,6 +42,7 @@ async def market_ticker(limit: int = 20) -> list[dict]:
 
 
 @router.get("/trends")
+@cached(ttl_seconds=_TRENDS_TTL_SECONDS)
 async def market_trends(view: str = "summary", community: str | None = None, limit: int = 4) -> list[dict]:
     session_factory = get_session_factory()
 

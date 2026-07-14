@@ -19,6 +19,21 @@ def _reset_rate_limiter():
     limiter.reset()
 
 
+@pytest.fixture(autouse=True)
+def _reset_cache():
+    """app.cache's in-memory fallback is a module-level dict; without a reset
+    between tests, a cached response from one test's seeded_sqlite_db (e.g.
+    GET /comps with a given set of params) would leak into a later test that
+    happens to call the same endpoint with the same params against a
+    different (fresh) fixture DB, returning stale data instead of a live
+    query."""
+    from app.cache import _memory_cache
+
+    _memory_cache.clear()
+    yield
+    _memory_cache.clear()
+
+
 @pytest.fixture()
 def seeded_sqlite_db(tmp_path, monkeypatch):
     """Points app.db at a fresh SQLite DB seeded with the synthetic dataset,

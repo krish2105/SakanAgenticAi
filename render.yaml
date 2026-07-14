@@ -33,11 +33,13 @@
 #                        (aistudio.google.com/apikey, no card) gives real LLM
 #                        reasoning at zero cost if ANTHROPIC_API_KEY is unset.
 #                        See app/llm.py.
-#   REDIS_URL          - optional; unset means the WS pub/sub falls back to an
-#                        in-memory registry, which is fine for a single Render
+#   REDIS_URL          - optional; unset means the WS pub/sub AND the
+#                        market/comps response cache (app/cache.py) both fall
+#                        back to in-memory, which is fine for a single Render
 #                        instance (the free plan's default) but stops
 #                        fanning out correctly the moment you scale beyond
-#                        one. A free Upstash Redis instance is the usual
+#                        one. A free Upstash Redis instance (console.upstash.com,
+#                        256MB/500K commands/month, no card) is the usual
 #                        pairing if you need it before then.
 #   EMAIL_PROVIDER     - optional; defaults to "console" (logs the reset/
 #                        verify link instead of emailing it -- fine for a
