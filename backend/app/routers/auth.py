@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -157,6 +158,38 @@ async def register(request: Request, body: RegisterRequest) -> TokenResponse:
         session.commit()
 
     send_verification_email(email, _frontend_link("/verify", verify_token))
+    return TokenResponse(access_token=access, refresh_token=refresh)
+
+
+@router.post("/demo", response_model=TokenResponse, status_code=201)
+@limiter.limit("10/minute")
+async def demo_login(request: Request) -> TokenResponse:
+    """Ephemeral guest session -- a fresh, real Starter-tier account created
+    on the spot, no email/password required. Same pseudo-account pattern as
+    WhatsApp's auto-provisioned users (email prefix marks it as synthetic,
+    nothing else special about the row), and a fresh account per click
+    rather than one shared demo login so one visitor's 5-query Starter
+    quota never blocks another's -- every "Continue as Demo" click gets its
+    own full quota. Runs the real pipeline end-to-end, not a canned replay."""
+    user_agent, ip = _client_meta(request)
+    ensure_users_table()
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        user = User(
+            email=f"demo+{secrets.token_hex(8)}@sakan.internal",
+            hashed_password=hash_password(secrets.token_urlsafe(32)),
+            full_name="Demo User",
+            role="Agent",
+            email_verified=True,
+        )
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+
+        access = create_access_token(user.user_id, user.email)
+        refresh = create_refresh_token(session, user.user_id, user_agent=user_agent, ip_address=ip)
+        session.commit()
+
     return TokenResponse(access_token=access, refresh_token=refresh)
 
 

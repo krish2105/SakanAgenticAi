@@ -11,6 +11,7 @@ import {
   logoutUser,
   onTokenChange,
   registerUser,
+  startDemoSession,
   type AuthUser,
 } from "@/lib/api";
 
@@ -20,6 +21,7 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string, turnstileToken?: string) => Promise<void>;
   register: (email: string, password: string, fullName?: string, turnstileToken?: string) => Promise<void>;
+  continueAsDemo: () => Promise<void>;
   logout: () => void;
 }
 
@@ -86,6 +88,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const continueAsDemo = useCallback(async () => {
+    await startDemoSession(); // stores tokens
+    setToken(getAccessToken());
+    const me = await fetchMe(getAccessToken() || "");
+    setUser(me);
+    if (me) {
+      identifyUser(me.user_id, { email: me.email, role: me.role, demo: true });
+      capture("demo_session_started");
+    }
+  }, []);
+
   const logout = useCallback(() => {
     void logoutUser(); // revoke server-side + clear storage (fires onTokenChange)
     capture("user_logged_out");
@@ -96,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, continueAsDemo, logout }}>
       {children}
     </AuthContext.Provider>
   );

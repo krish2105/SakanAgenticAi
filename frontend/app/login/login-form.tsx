@@ -11,7 +11,7 @@ import { useLocale } from "@/components/locale-provider";
 import { TurnstileWidget } from "@/components/turnstile-widget";
 
 export function LoginForm() {
-  const { login, register } = useAuth();
+  const { login, register, continueAsDemo } = useAuth();
   const { t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -23,6 +23,7 @@ export function LoginForm() {
   const [fullName, setFullName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -40,6 +41,19 @@ export function LoginForm() {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleDemo() {
+    setError(null);
+    setDemoLoading(true);
+    try {
+      await continueAsDemo();
+      router.push(next);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't start a demo session");
+    } finally {
+      setDemoLoading(false);
     }
   }
 
@@ -102,6 +116,22 @@ export function LoginForm() {
           )}
         </CardContent>
       </Card>
+
+      <div className="mt-4 flex items-center gap-3">
+        <div className="h-px flex-1 bg-border" />
+        <span className="font-mono text-[10px] uppercase tracking-widest text-text-muted">or</span>
+        <div className="h-px flex-1 bg-border" />
+      </div>
+
+      <Button
+        variant="outline"
+        className="mt-4"
+        disabled={demoLoading}
+        onClick={handleDemo}
+      >
+        {demoLoading ? t("auth.pleaseWait") : t("auth.continueAsDemo")}
+      </Button>
+      <p className="mt-2 text-center text-xs text-text-muted">{t("auth.demoDescription")}</p>
 
       <button
         onClick={() => {

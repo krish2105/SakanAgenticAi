@@ -32,6 +32,34 @@ def test_register_and_login_return_refresh_tokens(seeded_sqlite_db):
         assert login.json()["refresh_token"]
 
 
+def test_demo_login_creates_a_fresh_ephemeral_user_each_call(seeded_sqlite_db):
+    with TestClient(app) as client:
+        first = client.post("/auth/demo")
+        assert first.status_code == 201, first.text
+        assert first.json()["access_token"] and first.json()["refresh_token"]
+
+        second = client.post("/auth/demo")
+        assert second.status_code == 201
+
+        # Two clicks -> two different, unrelated accounts -- confirms this
+        # isn't one shared login whose quota everyone drains together.
+        me1 = client.get("/auth/me", headers={"Authorization": f"Bearer {first.json()['access_token']}"}).json()
+        me2 = client.get("/auth/me", headers={"Authorization": f"Bearer {second.json()['access_token']}"}).json()
+        assert me1["user_id"] != me2["user_id"]
+        assert me1["email"].startswith("demo+") and me1["email"].endswith("@sakan.internal")
+        assert me1["email_verified"] is True
+
+
+def test_demo_login_gets_a_real_starter_quota(seeded_sqlite_db):
+    with TestClient(app) as client:
+        demo = client.post("/auth/demo").json()
+        billing = client.get(
+            "/billing/me", headers={"Authorization": f"Bearer {demo['access_token']}"}
+        ).json()
+        assert billing["tier"] == "starter"
+        assert billing["monthly_query_limit"] == 5
+
+
 def test_refresh_rotates_and_old_token_is_revoked(seeded_sqlite_db):
     with TestClient(app) as client:
         reg = _register(client)

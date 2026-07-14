@@ -6,6 +6,7 @@ import {
   clearTokens,
   onTokenChange,
   loginUser,
+  startDemoSession,
   fetchDeals,
   retryDealQuery,
   fetchAdminStats,
@@ -67,6 +68,30 @@ describe("loginUser", () => {
     await loginUser("a@b.com", "pw");
     expect(getAccessToken()).toBe("acc");
     expect(getRefreshToken()).toBe("ref");
+  });
+});
+
+describe("startDemoSession", () => {
+  beforeEach(() => clearTokens());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("POSTs to /auth/demo with no body and stores the returned tokens", async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toContain("/auth/demo");
+      expect(init?.method).toBe("POST");
+      expect(init?.body).toBeUndefined();
+      return jsonResponse(201, { access_token: "demo-acc", refresh_token: "demo-ref" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await startDemoSession();
+    expect(getAccessToken()).toBe("demo-acc");
+    expect(getRefreshToken()).toBe("demo-ref");
+  });
+
+  it("throws when the backend rejects the demo request", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(429, { detail: "Too many requests" })));
+    await expect(startDemoSession()).rejects.toThrow();
   });
 });
 

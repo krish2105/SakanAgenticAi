@@ -266,6 +266,17 @@ export async function loginUser(email: string, password: string, turnstileToken?
   return data.access_token as string;
 }
 
+/** "Continue as Demo" -- a fresh, real ephemeral account created server-side
+ * (backend/app/routers/auth.py's /auth/demo), not a canned/fake session. No
+ * email or password needed; every call gets its own full Starter-tier quota. */
+export async function startDemoSession(): Promise<string> {
+  const res = await fetch(`${API_BASE}/auth/demo`, { method: "POST" });
+  if (!res.ok) throw new Error(await parseAuthError(res));
+  const data = await res.json();
+  setTokens(data.access_token, data.refresh_token);
+  return data.access_token as string;
+}
+
 /** Revoke the refresh token server-side, then clear local storage. */
 export async function logoutUser(): Promise<void> {
   const refreshToken = getRefreshToken();
