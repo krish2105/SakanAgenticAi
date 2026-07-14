@@ -19,8 +19,9 @@ from pydantic import BaseModel
 from app import config
 from app.auth import get_current_user
 from app.db import get_session_factory
-from app.models import User
+from app.models import StripeWebhookEvent, User
 from app.services.billing_service import PLANS, quota_status, stripe_price_id_for, tier_for_price_id
+from app.services.email import send_email
 from app.services.pipeline_runner import ensure_tables
 
 log = logging.getLogger("sakan.billing")
@@ -143,6 +144,39 @@ def _apply_subscription_to_user(session, *, customer_id: str, subscription_id: s
     session.commit()
 
 
+def _handle_payment_failed(session, *, customer_id: str) -> None:
+    from sqlalchemy import select
+
+    user = session.scalar(select(User).where(User.stripe_customer_id == customer_id))
+    if user is None:
+        log.warning("Stripe payment_failed webhook for unknown customer_id=%s", customer_id)
+        return
+
+    user.subscription_status = "past_due"
+    session.add(user)
+    session.commit()
+
+    send_email(
+        user.email,
+        "Action needed: your Sakan AI payment failed",
+        "We couldn't process your latest subscription payment. Your account stays on its "
+        f"current plan for now, but please update your billing details soon to avoid losing "
+        f"access: {config.FRONTEND_URL}/billing",
+    )
+
+
+def _handle_payment_succeeded(session, *, customer_id: str) -> None:
+    from sqlalchemy import select
+
+    user = session.scalar(select(User).where(User.stripe_customer_id == customer_id))
+    if user is None or user.subscription_status != "past_due":
+        return  # nothing to recover from -- most invoices are a routine renewal, not a dunning recovery
+
+    user.subscription_status = "active"
+    session.add(user)
+    session.commit()
+
+
 @router.post("/webhook")
 async def stripe_webhook(request: Request) -> dict:
     _require_stripe_configured()
@@ -169,8 +203,22 @@ async def stripe_webhook(request: Request) -> dict:
         raise HTTPException(status_code=400, detail=f"Invalid webhook payload: {exc}")
 
     event_type = event["type"]
+    event_id = event.get("id")
     data = event["data"]["object"]
     session_factory = get_session_factory()
+
+    # Idempotency (Phase 11a): Stripe explicitly documents that the same
+    # event can be delivered more than once (retries, duplicate fan-out).
+    # An event with no id (only possible via the "no webhook secret, dev
+    # only" unverified-JSON path above) skips this check -- there's nothing
+    # to key on, and that path never runs in production anyway.
+    if event_id:
+        with session_factory() as session:
+            if session.get(StripeWebhookEvent, event_id) is not None:
+                log.info("Ignoring duplicate Stripe webhook delivery: %s (%s)", event_id, event_type)
+                return {"received": True, "duplicate": True}
+            session.add(StripeWebhookEvent(event_id=event_id, event_type=event_type))
+            session.commit()
 
     if event_type == "checkout.session.completed":
         with session_factory() as session:
@@ -200,6 +248,12 @@ async def stripe_webhook(request: Request) -> dict:
                 price_id=None,
                 status="canceled",
             )
+    elif event_type == "invoice.payment_failed":
+        with session_factory() as session:
+            _handle_payment_failed(session, customer_id=data["customer"])
+    elif event_type == "invoice.payment_succeeded":
+        with session_factory() as session:
+            _handle_payment_succeeded(session, customer_id=data["customer"])
     else:
         log.info("Unhandled Stripe webhook event type: %s", event_type)
 

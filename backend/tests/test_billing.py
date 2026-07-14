@@ -224,3 +224,138 @@ def test_webhook_rejects_invalid_signature(seeded_sqlite_db, monkeypatch):
             headers={"stripe-signature": "bad"},
         )
         assert res.status_code == 400
+
+
+def test_webhook_replayed_event_is_not_reapplied(seeded_sqlite_db, monkeypatch):
+    """Phase 11a: Stripe can redeliver the same event id more than once --
+    a replay must be a no-op, not a second tier upgrade / second email."""
+    monkeypatch.setattr(billing_module.config, "STRIPE_SECRET_KEY", "sk_test_fake")
+    monkeypatch.setattr(billing_module.config, "STRIPE_WEBHOOK_SECRET", None)
+    monkeypatch.setattr(billing_module.config, "STRIPE_PRICE_ID_PRO", "price_pro_fake")
+
+    with TestClient(app) as client:
+        _register(client, "replay-user@example.com")
+        session_factory = get_session_factory()
+        with session_factory() as session:
+            user = session.scalar(select(User).where(User.email == "replay-user@example.com"))
+            user.stripe_customer_id = "cus_replay_test"
+            session.add(user)
+            session.commit()
+
+        event = {
+            "id": "evt_replay_test",
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "id": "sub_replay",
+                    "customer": "cus_replay_test",
+                    "status": "active",
+                    "items": {"data": [{"price": {"id": "price_pro_fake"}}]},
+                }
+            },
+        }
+        first = client.post("/billing/webhook", json=event)
+        assert first.status_code == 200
+        assert first.json() == {"received": True}
+
+        second = client.post("/billing/webhook", json=event)
+        assert second.status_code == 200
+        assert second.json() == {"received": True, "duplicate": True}
+
+        with session_factory() as session:
+            user = session.scalar(select(User).where(User.email == "replay-user@example.com"))
+            assert user.tier == "pro"  # applied exactly once, not corrupted by the replay
+
+
+def test_webhook_payment_failed_flags_past_due_and_emails_user(seeded_sqlite_db, monkeypatch):
+    monkeypatch.setattr(billing_module.config, "STRIPE_SECRET_KEY", "sk_test_fake")
+    monkeypatch.setattr(billing_module.config, "STRIPE_WEBHOOK_SECRET", None)
+
+    sent_emails = []
+    monkeypatch.setattr(
+        billing_module,
+        "send_email",
+        lambda to, subject, body: sent_emails.append((to, subject, body)),
+    )
+
+    with TestClient(app) as client:
+        _register(client, "dunning-user@example.com")
+        session_factory = get_session_factory()
+        with session_factory() as session:
+            user = session.scalar(select(User).where(User.email == "dunning-user@example.com"))
+            user.stripe_customer_id = "cus_dunning_test"
+            user.tier = "pro"
+            user.subscription_status = "active"
+            session.add(user)
+            session.commit()
+
+        event = {
+            "type": "invoice.payment_failed",
+            "data": {"object": {"customer": "cus_dunning_test"}},
+        }
+        res = client.post("/billing/webhook", json=event)
+        assert res.status_code == 200
+
+        with session_factory() as session:
+            user = session.scalar(select(User).where(User.email == "dunning-user@example.com"))
+            assert user.subscription_status == "past_due"
+            assert user.tier == "pro"  # not downgraded -- Stripe's own retries govern that
+
+        assert len(sent_emails) == 1
+        assert sent_emails[0][0] == "dunning-user@example.com"
+        assert "payment failed" in sent_emails[0][1].lower()
+
+
+def test_webhook_payment_succeeded_recovers_past_due(seeded_sqlite_db, monkeypatch):
+    monkeypatch.setattr(billing_module.config, "STRIPE_SECRET_KEY", "sk_test_fake")
+    monkeypatch.setattr(billing_module.config, "STRIPE_WEBHOOK_SECRET", None)
+
+    with TestClient(app) as client:
+        _register(client, "recovered-user@example.com")
+        session_factory = get_session_factory()
+        with session_factory() as session:
+            user = session.scalar(select(User).where(User.email == "recovered-user@example.com"))
+            user.stripe_customer_id = "cus_recovered_test"
+            user.subscription_status = "past_due"
+            session.add(user)
+            session.commit()
+
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": "cus_recovered_test"}},
+        }
+        res = client.post("/billing/webhook", json=event)
+        assert res.status_code == 200
+
+        with session_factory() as session:
+            user = session.scalar(select(User).where(User.email == "recovered-user@example.com"))
+            assert user.subscription_status == "active"
+
+
+def test_webhook_payment_succeeded_ignores_routine_renewal(seeded_sqlite_db, monkeypatch):
+    """A normal monthly renewal invoice also fires payment_succeeded -- it
+    must not touch a user who was never past_due (e.g. flip "active" to
+    "active" pointlessly, or worse, overwrite some other status)."""
+    monkeypatch.setattr(billing_module.config, "STRIPE_SECRET_KEY", "sk_test_fake")
+    monkeypatch.setattr(billing_module.config, "STRIPE_WEBHOOK_SECRET", None)
+
+    with TestClient(app) as client:
+        _register(client, "routine-user@example.com")
+        session_factory = get_session_factory()
+        with session_factory() as session:
+            user = session.scalar(select(User).where(User.email == "routine-user@example.com"))
+            user.stripe_customer_id = "cus_routine_test"
+            user.subscription_status = "canceled"
+            session.add(user)
+            session.commit()
+
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": "cus_routine_test"}},
+        }
+        res = client.post("/billing/webhook", json=event)
+        assert res.status_code == 200
+
+        with session_factory() as session:
+            user = session.scalar(select(User).where(User.email == "routine-user@example.com"))
+            assert user.subscription_status == "canceled"  # untouched

@@ -157,3 +157,18 @@ class AuditLog(Base):
     event_type = Column(String(50))
     event_payload = Column(JSONType)
     timestamp = Column(DateTime, server_default=func.now())
+
+
+class StripeWebhookEvent(Base):
+    """Idempotency record for /billing/webhook (Phase 11a). Stripe explicitly
+    documents that webhooks can be delivered more than once for the same
+    event -- without this, a replayed checkout.session.completed could
+    re-trigger _apply_subscription_to_user redundantly (harmless on its own,
+    but a foot-gun for any future handler that isn't naturally idempotent,
+    e.g. one that increments a counter or sends an email per delivery)."""
+
+    __tablename__ = "stripe_webhook_events"
+
+    event_id = Column(String(255), primary_key=True)
+    event_type = Column(String(100), nullable=False)
+    received_at = Column(DateTime, server_default=func.now())
