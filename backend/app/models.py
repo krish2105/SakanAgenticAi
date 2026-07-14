@@ -119,7 +119,12 @@ class AuthToken(Base):
     """Opaque, single-use-ish tokens for refresh sessions, password reset, and
     email verification. Only the SHA-256 hash of the raw token is stored, so a
     DB leak doesn't hand over usable tokens. token_type in
-    {refresh, reset, verify}."""
+    {refresh, reset, verify}.
+
+    user_agent/ip_address/last_used_at (Phase 16: session-management UI) are
+    only populated for token_type='refresh' rows -- a reset/verify token is
+    single-use and emailed, not a "session" a user would recognize or want to
+    individually revoke."""
 
     __tablename__ = "auth_tokens"
 
@@ -130,6 +135,9 @@ class AuthToken(Base):
     expires_at = Column(DateTime, nullable=False)
     revoked = Column(Boolean, nullable=False, server_default=text("false"))
     created_at = Column(DateTime, server_default=func.now())
+    user_agent = Column(String(255), nullable=True)
+    ip_address = Column(String(64), nullable=True)
+    last_used_at = Column(DateTime, nullable=True)
 
 
 class DealQuery(Base):

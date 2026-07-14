@@ -71,6 +71,13 @@ STRIPE_PRICE_ID_PRO = os.environ.get("STRIPE_PRICE_ID_PRO")
 STRIPE_PRICE_ID_TEAM = os.environ.get("STRIPE_PRICE_ID_TEAM")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
+# Cloudflare Turnstile (Phase 16): bot challenge on register/login. Optional --
+# app/services/turnstile.py no-ops (accepts every token) when unset, same
+# pattern as every other optional integration in this file. Free, unlimited
+# challenges, no card (turnstile is a Cloudflare product, unrelated to fronting
+# this app's traffic through Cloudflare's CDN/DNS).
+TURNSTILE_SECRET_KEY = os.environ.get("TURNSTILE_SECRET_KEY")
+
 # WhatsApp Business Cloud API (Phase C). All optional -- see
 # app/routers/whatsapp.py and README "WhatsApp" for what degrades to a
 # no-op vs. what's required. Never verified against a real Meta account

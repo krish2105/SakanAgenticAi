@@ -79,6 +79,11 @@
 #                        yet, so LicensedFeedDataSource raises a clear
 #                        error if selected without a real feed configured.
 #                        See README "Data partnership".
+#   TURNSTILE_SECRET_KEY - optional; unset means register/login accept every
+#                        request unverified (dev-friendly default). Free,
+#                        unlimited challenges, no card -- dash.cloudflare.com
+#                        -> Turnstile. Must match the frontend's
+#                        NEXT_PUBLIC_TURNSTILE_SITE_KEY.
 #
 # Note: written and reasoned through carefully, but never actually deployed
 # from this session -- the sandbox it was built in has no network path to
@@ -143,4 +148,6 @@ services:
       - key: LICENSED_DATA_FEED_URL
         sync: false
       - key: LICENSED_DATA_FEED_API_KEY
+        sync: false
+      - key: TURNSTILE_SECRET_KEY
         sync: false

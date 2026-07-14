@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
 import { useLocale } from "@/components/locale-provider";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 
 export function LoginForm() {
   const { login, register } = useAuth();
@@ -22,6 +23,7 @@ export function LoginForm() {
   const [fullName, setFullName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -29,9 +31,9 @@ export function LoginForm() {
     setSubmitting(true);
     try {
       if (mode === "login") {
-        await login(email, password);
+        await login(email, password, turnstileToken || undefined);
       } else {
-        await register(email, password, fullName || undefined);
+        await register(email, password, fullName || undefined, turnstileToken || undefined);
       }
       router.push(next);
     } catch (err) {
@@ -84,6 +86,7 @@ export function LoginForm() {
               minLength={mode === "register" ? 8 : undefined}
               required
             />
+            <TurnstileWidget onVerify={setTurnstileToken} />
             {error && <p className="text-sm text-negative">{error}</p>}
             <Button type="submit" disabled={submitting} className="mt-1">
               {submitting ? t("auth.pleaseWait") : mode === "login" ? t("auth.signIn") : t("auth.createAccount")}

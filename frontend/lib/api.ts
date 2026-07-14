@@ -193,11 +193,21 @@ async function parseAuthError(res: Response): Promise<string> {
   return `Request failed (${res.status})`;
 }
 
-export async function registerUser(email: string, password: string, fullName?: string): Promise<string> {
+export async function registerUser(
+  email: string,
+  password: string,
+  fullName?: string,
+  turnstileToken?: string
+): Promise<string> {
   const res = await fetch(`${API_BASE}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, full_name: fullName || undefined }),
+    body: JSON.stringify({
+      email,
+      password,
+      full_name: fullName || undefined,
+      turnstile_token: turnstileToken || undefined,
+    }),
   });
   if (!res.ok) throw new Error(await parseAuthError(res));
   const data = await res.json();
@@ -205,11 +215,11 @@ export async function registerUser(email: string, password: string, fullName?: s
   return data.access_token as string;
 }
 
-export async function loginUser(email: string, password: string): Promise<string> {
+export async function loginUser(email: string, password: string, turnstileToken?: string): Promise<string> {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, turnstile_token: turnstileToken || undefined }),
   });
   if (!res.ok) throw new Error(await parseAuthError(res));
   const data = await res.json();
@@ -267,6 +277,35 @@ export async function fetchMe(token: string): Promise<AuthUser | null> {
   } catch {
     return null;
   }
+}
+
+// --- Active sessions (Phase 16) ---
+
+export interface AuthSession {
+  id: number;
+  user_agent: string | null;
+  ip_address: string | null;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+export async function fetchSessions(token: string): Promise<AuthSession[]> {
+  return authedGet<AuthSession[]>("/auth/sessions", token);
+}
+
+export async function revokeSession(sessionId: number, token: string): Promise<void> {
+  const res = await authedFetch(`/auth/sessions/${sessionId}`, { method: "DELETE" }, token);
+  if (res.status === 401) throw new AuthRequiredError();
+  if (!res.ok) throw new Error(await parseAuthError(res));
+}
+
+/** Logs every device out, including the one making this call -- callers
+ * should follow up with a local logout()/redirect, same as the backend
+ * revokes the calling session's own refresh token along with the rest. */
+export async function revokeAllSessions(token: string): Promise<void> {
+  const res = await authedFetch("/auth/sessions/revoke-all", { method: "POST" }, token);
+  if (res.status === 401) throw new AuthRequiredError();
+  if (!res.ok) throw new Error(await parseAuthError(res));
 }
 
 // --- Deals (all require auth) ---

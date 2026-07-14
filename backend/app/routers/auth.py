@@ -16,15 +16,18 @@ from app.auth import (
     create_verify_token,
     get_current_user,
     hash_password,
+    list_active_sessions,
     revoke_all_refresh_tokens,
     revoke_refresh_token,
+    revoke_session,
     rotate_refresh_token,
     verify_password,
 )
 from app.db import get_engine, get_session_factory
 from app.models import Base, User
-from app.ratelimit import limiter
+from app.ratelimit import client_ip_key, limiter
 from app.services.email import send_password_reset_email, send_verification_email
+from app.services.turnstile import verify_turnstile_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -39,11 +42,18 @@ def ensure_users_table() -> None:
     Base.metadata.create_all(get_engine())
 
 
+def _client_meta(request: Request) -> tuple[str | None, str | None]:
+    """(user_agent, ip_address) for the active-sessions UI -- best-effort,
+    both are display-only metadata, never used for authorization."""
+    return request.headers.get("user-agent"), client_ip_key(request)
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     full_name: str | None = None
     role: str = "Agent"
+    turnstile_token: str | None = None
 
     @field_validator("password")
     @classmethod
@@ -64,6 +74,7 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    turnstile_token: str | None = None
 
 
 class RefreshRequest(BaseModel):
@@ -114,7 +125,12 @@ def _frontend_link(path: str, token: str) -> str:
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
-async def register(body: RegisterRequest) -> TokenResponse:
+@limiter.limit("10/minute")
+async def register(request: Request, body: RegisterRequest) -> TokenResponse:
+    user_agent, ip = _client_meta(request)
+    if not await verify_turnstile_token(body.turnstile_token, remote_ip=ip):
+        raise HTTPException(status_code=400, detail="Bot verification failed. Please try again.")
+
     ensure_users_table()
     session_factory = get_session_factory()
     with session_factory() as session:
@@ -136,7 +152,7 @@ async def register(body: RegisterRequest) -> TokenResponse:
         # detached (and its attributes expired) outside the `with` block.
         email = user.email
         access = create_access_token(user.user_id, user.email)
-        refresh = create_refresh_token(session, user.user_id)
+        refresh = create_refresh_token(session, user.user_id, user_agent=user_agent, ip_address=ip)
         verify_token = create_verify_token(session, user.user_id)
         session.commit()
 
@@ -147,6 +163,10 @@ async def register(body: RegisterRequest) -> TokenResponse:
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("10/minute")
 async def login(request: Request, body: LoginRequest) -> TokenResponse:
+    user_agent, ip = _client_meta(request)
+    if not await verify_turnstile_token(body.turnstile_token, remote_ip=ip):
+        raise HTTPException(status_code=400, detail="Bot verification failed. Please try again.")
+
     ensure_users_table()
     session_factory = get_session_factory()
     now = datetime.now(timezone.utc)
@@ -187,11 +207,12 @@ async def login(request: Request, body: LoginRequest) -> TokenResponse:
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh(body: RefreshRequest) -> TokenResponse:
+async def refresh(request: Request, body: RefreshRequest) -> TokenResponse:
     ensure_users_table()
+    user_agent, ip = _client_meta(request)
     session_factory = get_session_factory()
     with session_factory() as session:
-        rotated = rotate_refresh_token(session, body.refresh_token)
+        rotated = rotate_refresh_token(session, body.refresh_token, user_agent=user_agent, ip_address=ip)
         if rotated is None:
             raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
         new_refresh, user_id = rotated
@@ -275,3 +296,48 @@ async def me(current_user: User = Depends(get_current_user)) -> UserOut:
         role=current_user.role,
         email_verified=bool(current_user.email_verified),
     )
+
+
+class SessionOut(BaseModel):
+    id: int
+    user_agent: str | None
+    ip_address: str | None
+    created_at: datetime
+    last_used_at: datetime | None
+
+
+@router.get("/sessions", response_model=list[SessionOut])
+async def list_sessions(current_user: User = Depends(get_current_user)) -> list[SessionOut]:
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        rows = list_active_sessions(session, current_user.user_id)
+        return [
+            SessionOut(
+                id=r.id,
+                user_agent=r.user_agent,
+                ip_address=r.ip_address,
+                created_at=r.created_at,
+                last_used_at=r.last_used_at,
+            )
+            for r in rows
+        ]
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+async def delete_session(session_id: int, current_user: User = Depends(get_current_user)) -> None:
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        found = revoke_session(session, current_user.user_id, session_id)
+        if not found:
+            raise HTTPException(status_code=404, detail="Session not found")
+        session.commit()
+
+
+@router.post("/sessions/revoke-all", status_code=204)
+async def revoke_all_sessions(current_user: User = Depends(get_current_user)) -> None:
+    """Logs the account out of every device, including whichever one made
+    this request -- the frontend follows this with a local logout/redirect."""
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        revoke_all_refresh_tokens(session, current_user.user_id)
+        session.commit()

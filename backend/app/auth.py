@@ -56,23 +56,41 @@ def _hash_token(raw: str) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def _issue_token(session, user_id: int, token_type: str, ttl: timedelta) -> str:
+def _issue_token(
+    session,
+    user_id: int,
+    token_type: str,
+    ttl: timedelta,
+    user_agent: str | None = None,
+    ip_address: str | None = None,
+) -> str:
     raw = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
     session.add(
         AuthToken(
             user_id=user_id,
             token_type=token_type,
             token_hash=_hash_token(raw),
-            expires_at=datetime.now(timezone.utc) + ttl,
+            expires_at=now + ttl,
             revoked=False,
+            user_agent=user_agent[:255] if user_agent else None,
+            ip_address=ip_address[:64] if ip_address else None,
+            last_used_at=now if token_type == "refresh" else None,
         )
     )
     return raw
 
 
-def create_refresh_token(session, user_id: int) -> str:
+def create_refresh_token(
+    session, user_id: int, user_agent: str | None = None, ip_address: str | None = None
+) -> str:
     return _issue_token(
-        session, user_id, "refresh", timedelta(days=config.REFRESH_TOKEN_EXPIRE_DAYS)
+        session,
+        user_id,
+        "refresh",
+        timedelta(days=config.REFRESH_TOKEN_EXPIRE_DAYS),
+        user_agent=user_agent,
+        ip_address=ip_address,
     )
 
 
@@ -118,15 +136,25 @@ def consume_single_use_token(session, raw: str, token_type: str) -> int | None:
     return row.user_id
 
 
-def rotate_refresh_token(session, raw: str) -> tuple[str, int] | None:
+def rotate_refresh_token(
+    session, raw: str, user_agent: str | None = None, ip_address: str | None = None
+) -> tuple[str, int] | None:
     """Validate a refresh token, revoke it, and issue a new one (rotation).
-    Returns (new_raw_token, user_id) or None if invalid/expired/revoked."""
+    Returns (new_raw_token, user_id) or None if invalid/expired/revoked.
+    user_agent/ip_address default to the rotated-out token's own values when
+    not passed, so a session's device info survives silent background
+    refreshes that don't have a fresh Request to read them from."""
     row = _lookup_token(session, raw, "refresh")
     if row is None:
         return None
     row.revoked = True
     session.add(row)
-    new_raw = create_refresh_token(session, row.user_id)
+    new_raw = create_refresh_token(
+        session,
+        row.user_id,
+        user_agent=user_agent or row.user_agent,
+        ip_address=ip_address or row.ip_address,
+    )
     return new_raw, row.user_id
 
 
@@ -138,7 +166,8 @@ def revoke_refresh_token(session, raw: str) -> None:
 
 
 def revoke_all_refresh_tokens(session, user_id: int) -> None:
-    """Used after a password reset -- log every session out."""
+    """Used after a password reset, or the user's own "log out everywhere" --
+    revokes every session, including whichever one made the request."""
     from sqlalchemy import update
 
     session.execute(
@@ -146,6 +175,45 @@ def revoke_all_refresh_tokens(session, user_id: int) -> None:
         .where(AuthToken.user_id == user_id, AuthToken.token_type == "refresh")
         .values(revoked=True)
     )
+
+
+def list_active_sessions(session, user_id: int) -> list[AuthToken]:
+    """Non-revoked, non-expired refresh-token rows for the account -- what
+    the "active sessions" UI shows. Most recent first."""
+    from sqlalchemy import select
+
+    now = datetime.now(timezone.utc)
+    rows = session.scalars(
+        select(AuthToken)
+        .where(
+            AuthToken.user_id == user_id,
+            AuthToken.token_type == "refresh",
+            AuthToken.revoked.is_(False),
+            AuthToken.expires_at > now,
+        )
+        .order_by(AuthToken.created_at.desc())
+    ).all()
+    return list(rows)
+
+
+def revoke_session(session, user_id: int, token_id: int) -> bool:
+    """Revokes one session by id, scoped to the owning user so one account
+    can never revoke another's session by guessing an id. Returns whether a
+    matching row was found."""
+    from sqlalchemy import select
+
+    row = session.scalar(
+        select(AuthToken).where(
+            AuthToken.id == token_id,
+            AuthToken.user_id == user_id,
+            AuthToken.token_type == "refresh",
+        )
+    )
+    if row is None:
+        return False
+    row.revoked = True
+    session.add(row)
+    return True
 
 
 def _load_user(user_id: int) -> User | None:

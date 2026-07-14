@@ -18,8 +18,8 @@ interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, fullName?: string) => Promise<void>;
+  login: (email: string, password: string, turnstileToken?: string) => Promise<void>;
+  register: (email: string, password: string, fullName?: string, turnstileToken?: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -64,8 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    await loginUser(email, password); // stores tokens
+  const login = useCallback(async (email: string, password: string, turnstileToken?: string) => {
+    await loginUser(email, password, turnstileToken); // stores tokens
     setToken(getAccessToken());
     const me = await fetchMe(getAccessToken() || "");
     setUser(me);
@@ -75,8 +75,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const register = useCallback(async (email: string, password: string, fullName?: string) => {
-    await registerUser(email, password, fullName); // stores tokens
+  const register = useCallback(async (email: string, password: string, fullName?: string, turnstileToken?: string) => {
+    await registerUser(email, password, fullName, turnstileToken); // stores tokens
     setToken(getAccessToken());
     const me = await fetchMe(getAccessToken() || "");
     setUser(me);
