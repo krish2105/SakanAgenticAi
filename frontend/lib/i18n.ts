@@ -75,6 +75,67 @@ const en: Dict = {
 
   "query.placeholder": "e.g. 2BR apartment in Dubai Marina under 2.2M, off-plan compliance check",
   "query.submit": "Ask Sakan",
+
+  "agentTrace.title": "Agent Trace",
+  "agentTrace.query": "Query",
+  "agentTrace.comps": "Comps",
+  "agentTrace.valuation": "Valuation",
+  "agentTrace.compliance": "Compliance",
+  "agentTrace.memo": "Memo",
+
+  "valuation.title": "Valuation Range",
+  "valuation.method": "Method",
+  "valuation.notYetComputed": "Not yet computed.",
+
+  "compliance.title": "Compliance",
+  "compliance.notYetChecked": "Not yet checked.",
+  "compliance.retrievedClauses": "Retrieved clauses",
+  "compliance.reviewedBy": "reviewed —",
+  "compliance.disclaimer":
+    "Every clause behind this answer is AI-drafted and has not been reviewed by a licensed legal partner. Treat this as a starting point for manual RERA verification, not legal advice.",
+
+  "comps.comparableTransactions": "Comparable Transactions",
+  "comps.noComps": "No comparable transactions retrieved yet.",
+  "comps.colTransaction": "Transaction",
+  "comps.colBuilding": "Building",
+  "comps.colBeds": "Beds",
+  "comps.colPrice": "Price",
+  "comps.colPricePerSqft": "AED/sqft",
+  "comps.colDate": "Date",
+
+  "footer.tagline": "Agentic deal intelligence for Dubai real estate. Every claim shows its work.",
+  "footer.product": "Product",
+  "footer.pricing": "Pricing",
+  "footer.legal": "Legal",
+  "footer.terms": "Terms of Service",
+  "footer.privacy": "Privacy Policy",
+  "footer.dpa": "Data Processing Addendum",
+  "footer.contact": "Contact",
+  "footer.contactSales": "Contact sales",
+  "footer.dataNotice": "Demo runs on synthetic and public-dataset data — see the data sources in our documentation.",
+  "footer.rights": "All rights reserved.",
+
+  "pricing.eyebrow": "Pricing",
+  "pricing.title": "Simple, transparent pricing.",
+  "pricing.subtitle":
+    "Start free with unlimited comps search. Upgrade when you need more full-pipeline deal queries.",
+  "pricing.getStarted": "Get started",
+  "pricing.contactSales": "Contact sales",
+  "pricing.faqTitle": "Common questions",
+
+  "legal.draftBanner":
+    "Draft — pending legal review. This page is a placeholder template, not a reviewed or binding legal document. Do not rely on it until counsel has signed off.",
+  "legal.lastUpdated": "Last updated",
+
+  "home.howItWorks": "How it works",
+  "home.step1Title": "Ask in plain English",
+  "home.step1Body": "\"2BR in Business Bay under AED 2M\" — no forms, no filters to configure first.",
+  "home.step2Title": "Agents pull comps and value it",
+  "home.step2Body": "Real comparable transactions, a statistical model, and a defensible valuation range.",
+  "home.step3Title": "Compliance check + cited memo",
+  "home.step3Body": "RERA clauses retrieved and cited, or an honest \"unable to verify\" — never a guess.",
+  "home.pricingTeaser": "Free to start. Unlimited comps search on every plan.",
+  "home.viewPricing": "View pricing",
 };
 
 const ar: Dict = {
@@ -127,6 +188,66 @@ const ar: Dict = {
 
   "query.placeholder": "مثال: شقة غرفتي نوم في دبي مارينا بأقل من 2.2 مليون، فحص امتثال لمشروع على الخارطة",
   "query.submit": "اسأل سكن",
+
+  "agentTrace.title": "مسار الوكلاء",
+  "agentTrace.query": "الاستعلام",
+  "agentTrace.comps": "المقارنات",
+  "agentTrace.valuation": "التقييم",
+  "agentTrace.compliance": "الامتثال",
+  "agentTrace.memo": "المذكرة",
+
+  "valuation.title": "نطاق التقييم",
+  "valuation.method": "الطريقة",
+  "valuation.notYetComputed": "لم يُحتسب بعد.",
+
+  "compliance.title": "الامتثال",
+  "compliance.notYetChecked": "لم يُفحص بعد.",
+  "compliance.retrievedClauses": "البنود المسترجعة",
+  "compliance.reviewedBy": "روجعت بواسطة —",
+  "compliance.disclaimer":
+    "كل بند وراء هذه الإجابة تمت صياغته بواسطة الذكاء الاصطناعي ولم تتم مراجعته من قِبل شريك قانوني مرخّص. اعتبر هذا نقطة انطلاق للتحقق اليدوي من هيئة التنظيم العقاري (RERA)، وليس استشارة قانونية.",
+
+  "comps.comparableTransactions": "المعاملات المرجعية",
+  "comps.noComps": "لم تُسترجع معاملات مرجعية بعد.",
+  "comps.colTransaction": "المعاملة",
+  "comps.colBuilding": "المبنى",
+  "comps.colBeds": "الغرف",
+  "comps.colPrice": "السعر",
+  "comps.colPricePerSqft": "درهم/قدم²",
+  "comps.colDate": "التاريخ",
+
+  "footer.tagline": "تحليل الصفقات العقارية بالذكاء الاصطناعي الوكيل لسوق دبي. كل ادعاء يوثّق مصدره.",
+  "footer.product": "المنتج",
+  "footer.pricing": "الأسعار",
+  "footer.legal": "الشؤون القانونية",
+  "footer.terms": "شروط الخدمة",
+  "footer.privacy": "سياسة الخصوصية",
+  "footer.dpa": "ملحق معالجة البيانات",
+  "footer.contact": "تواصل معنا",
+  "footer.contactSales": "تواصل مع المبيعات",
+  "footer.dataNotice": "النسخة التجريبية تعمل على بيانات اصطناعية وبيانات مفتوحة عامة — راجع مصادر البيانات في وثائقنا.",
+  "footer.rights": "جميع الحقوق محفوظة.",
+
+  "pricing.eyebrow": "الأسعار",
+  "pricing.title": "أسعار بسيطة وشفافة.",
+  "pricing.subtitle": "ابدأ مجانًا مع بحث مقارنات غير محدود. قم بالترقية عند الحاجة لمزيد من استعلامات الصفقات الكاملة.",
+  "pricing.getStarted": "ابدأ الآن",
+  "pricing.contactSales": "تواصل مع المبيعات",
+  "pricing.faqTitle": "أسئلة شائعة",
+
+  "legal.draftBanner":
+    "مسودة — قيد المراجعة القانونية. هذه الصفحة نموذج مبدئي، وليست وثيقة قانونية مُراجعة أو ملزمة. لا تعتمد عليها قبل موافقة المستشار القانوني.",
+  "legal.lastUpdated": "آخر تحديث",
+
+  "home.howItWorks": "كيف يعمل",
+  "home.step1Title": "اسأل بلغة طبيعية",
+  "home.step1Body": "«شقة غرفتي نوم في الخليج التجاري بأقل من ٢ مليون درهم» — بلا نماذج أو مرشحات معقدة.",
+  "home.step2Title": "الوكلاء يجلبون المقارنات ويقيّمون",
+  "home.step2Body": "معاملات مرجعية حقيقية، نموذج إحصائي، ونطاق تقييم قابل للدفاع عنه.",
+  "home.step3Title": "فحص الامتثال ومذكرة موثّقة",
+  "home.step3Body": "بنود هيئة التنظيم العقاري مسترجعة وموثّقة، أو إفصاح صادق بـ«تعذّر التحقق» — لا تخمين أبدًا.",
+  "home.pricingTeaser": "مجاني للبدء. بحث مقارنات غير محدود في كل باقة.",
+  "home.viewPricing": "عرض الأسعار",
 };
 
 export const DICTIONARIES: Record<Locale, Dict> = { en, ar };

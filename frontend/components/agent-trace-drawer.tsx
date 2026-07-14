@@ -3,14 +3,15 @@
 import { useState } from "react";
 import { Check, Loader2, Circle, AlertTriangle, ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/components/locale-provider";
 import type { AgentTraceEntry } from "@/lib/types";
 
-const STEPS: { agent: AgentTraceEntry["agent"]; label: string }[] = [
-  { agent: "query", label: "Query" },
-  { agent: "comps", label: "Comps" },
-  { agent: "valuation", label: "Valuation" },
-  { agent: "compliance", label: "Compliance" },
-  { agent: "memo", label: "Memo" },
+const STEPS: { agent: AgentTraceEntry["agent"]; labelKey: string }[] = [
+  { agent: "query", labelKey: "agentTrace.query" },
+  { agent: "comps", labelKey: "agentTrace.comps" },
+  { agent: "valuation", labelKey: "agentTrace.valuation" },
+  { agent: "compliance", labelKey: "agentTrace.compliance" },
+  { agent: "memo", labelKey: "agentTrace.memo" },
 ];
 
 function latestStatusFor(trace: AgentTraceEntry[], agent: string): AgentTraceEntry["status"] | "pending" {
@@ -26,7 +27,7 @@ function StepIcon({ status }: { status: AgentTraceEntry["status"] | "pending" })
   return <Circle size={12} className="text-text-muted" />;
 }
 
-function TraceList({ trace }: { trace: AgentTraceEntry[] }) {
+function TraceList({ trace, t }: { trace: AgentTraceEntry[]; t: (k: string) => string }) {
   return (
     <ol className="flex flex-col gap-3">
       {STEPS.map((step, i) => {
@@ -50,7 +51,7 @@ function TraceList({ trace }: { trace: AgentTraceEntry[] }) {
             </div>
             <div className="pt-0.5">
               <div className="text-sm font-medium text-text-primary">
-                {i + 1}. {step.label}
+                {i + 1}. {t(step.labelKey)}
               </div>
               {detail && <div className="mt-0.5 max-w-xs text-xs text-text-muted">{detail}</div>}
             </div>
@@ -63,6 +64,7 @@ function TraceList({ trace }: { trace: AgentTraceEntry[] }) {
 
 export function AgentTraceDrawer({ trace }: { trace: AgentTraceEntry[] }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { t } = useLocale();
   const doneCount = STEPS.filter((s) => latestStatusFor(trace, s.agent) === "done").length;
 
   return (
@@ -70,10 +72,10 @@ export function AgentTraceDrawer({ trace }: { trace: AgentTraceEntry[] }) {
       {/* Desktop: persistent right-column drawer */}
       <aside className="hidden w-72 shrink-0 border-l border-border bg-surface p-4 lg:block">
         <h2 className="font-display text-sm font-medium uppercase tracking-wide text-text-muted">
-          Agent Trace
+          {t("agentTrace.title")}
         </h2>
         <div className="mt-4">
-          <TraceList trace={trace} />
+          <TraceList trace={trace} t={t} />
         </div>
       </aside>
 
@@ -85,13 +87,13 @@ export function AgentTraceDrawer({ trace }: { trace: AgentTraceEntry[] }) {
           aria-expanded={mobileOpen}
         >
           <span className="font-display text-sm font-medium text-text-primary">
-            Agent Trace — {doneCount}/{STEPS.length}
+            {t("agentTrace.title")} — {doneCount}/{STEPS.length}
           </span>
           {mobileOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
         </button>
         {mobileOpen && (
           <div className="max-h-[50vh] overflow-y-auto border-t border-border px-4 py-4">
-            <TraceList trace={trace} />
+            <TraceList trace={trace} t={t} />
           </div>
         )}
       </div>

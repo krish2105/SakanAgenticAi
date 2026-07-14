@@ -1,26 +1,43 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { T } from "@/components/t";
 import type { Comp } from "@/lib/types";
 
 export function CompsTable({ comps }: { comps: Comp[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Comparable Transactions</CardTitle>
+        <CardTitle>
+          <T k="comps.comparableTransactions" />
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {comps.length === 0 ? (
-          <p className="text-sm text-text-muted">No comparable transactions retrieved yet.</p>
+          <p className="text-sm text-text-muted">
+            <T k="comps.noComps" />
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-muted">
-                  <th className="py-2 pr-3 font-medium">Transaction</th>
-                  <th className="py-2 pr-3 font-medium">Building</th>
-                  <th className="py-2 pr-3 font-medium">Beds</th>
-                  <th className="py-2 pr-3 font-medium">Price</th>
-                  <th className="py-2 pr-3 font-medium">AED/sqft</th>
-                  <th className="py-2 font-medium">Date</th>
+                  <th className="py-2 pr-3 font-medium">
+                    <T k="comps.colTransaction" />
+                  </th>
+                  <th className="py-2 pr-3 font-medium">
+                    <T k="comps.colBuilding" />
+                  </th>
+                  <th className="py-2 pr-3 font-medium">
+                    <T k="comps.colBeds" />
+                  </th>
+                  <th className="py-2 pr-3 font-medium">
+                    <T k="comps.colPrice" />
+                  </th>
+                  <th className="py-2 pr-3 font-medium">
+                    <T k="comps.colPricePerSqft" />
+                  </th>
+                  <th className="py-2 font-medium">
+                    <T k="comps.colDate" />
+                  </th>
                 </tr>
               </thead>
               <tbody className="font-mono text-xs">

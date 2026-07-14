@@ -1,5 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { CitedText } from "@/components/cited-text";
+import { T } from "@/components/t";
 
 export function ValuationCard({
   low,
@@ -15,7 +16,9 @@ export function ValuationCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Valuation Range</CardTitle>
+        <CardTitle>
+          <T k="valuation.title" />
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {low != null && high != null ? (
@@ -23,7 +26,11 @@ export function ValuationCard({
             <div className="font-mono text-2xl font-medium text-text-primary">
               AED {Math.round(low).toLocaleString()} – {Math.round(high).toLocaleString()}
             </div>
-            {method && <p className="mt-2 text-sm text-text-muted">Method: {method}</p>}
+            {method && (
+              <p className="mt-2 text-sm text-text-muted">
+                <T k="valuation.method" />: {method}
+              </p>
+            )}
             {rationale && (
               <p className="mt-2 text-sm text-text-muted">
                 <CitedText text={rationale} />
@@ -31,7 +38,9 @@ export function ValuationCard({
             )}
           </>
         ) : (
-          <p className="text-sm text-text-muted">Not yet computed.</p>
+          <p className="text-sm text-text-muted">
+            <T k="valuation.notYetComputed" />
+          </p>
         )}
       </CardContent>
     </Card>

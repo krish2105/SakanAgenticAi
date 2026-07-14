@@ -142,9 +142,15 @@ export function BillingClient({ plans }: { plans: BillingPlans }) {
                   >
                     {isCurrent ? "Current plan" : pendingTier === tier ? "Redirecting…" : `Upgrade to ${plan.label}`}
                   </Button>
+                ) : tier === "enterprise" ? (
+                  <a href="mailto:sales@sakan.ai?subject=Sakan%20AI%20Enterprise" className="w-full">
+                    <Button size="sm" variant="outline" className="w-full">
+                      Contact sales
+                    </Button>
+                  </a>
                 ) : (
-                  <Button size="sm" variant="outline" disabled={isCurrent}>
-                    {tier === "enterprise" ? "Contact sales" : "Included"}
+                  <Button size="sm" variant="outline" disabled>
+                    Included
                   </Button>
                 )}
               </CardContent>

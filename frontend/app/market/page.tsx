@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { PriceTrendChart } from "@/components/charts/price-trend-chart";
 import { DeveloperLeaderboardChart } from "@/components/charts/developer-leaderboard-chart";
 import { OffPlanFunnelChart } from "@/components/charts/off-plan-funnel-chart";
 import { T } from "@/components/t";
 import { fetchMarketTrends, fetchDeveloperLeaderboard, fetchOffPlanFunnel } from "@/lib/api";
+
+export const metadata: Metadata = {
+  title: "Analytics",
+  description: "Dubai real estate price trends, developer track record, and off-plan sell-through.",
+};
 
 export default async function MarketAnalyticsPage() {
   const [trends, developers, offPlan] = await Promise.all([
