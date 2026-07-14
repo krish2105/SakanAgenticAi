@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { Download, BarChart3, BellPlus } from "lucide-react";
+import { Download, BarChart3, BellPlus, Scale } from "lucide-react";
 import { CompsFilterBar, type CompsFilters } from "@/components/comps-filter-bar";
 import { ProvenanceBadge } from "@/components/comps-table";
 import { PriceDistributionChart } from "@/components/charts/price-distribution-chart";
+import { CompComparisonModal } from "@/components/comp-comparison-modal";
 import { Button } from "@/components/ui/button";
 import { SaveCompButton } from "@/components/save-comp-button";
 import { T } from "@/components/t";
@@ -38,6 +39,10 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [showDistribution, setShowDistribution] = useState(false);
   const [savingSearch, setSavingSearch] = useState(false);
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [showComparison, setShowComparison] = useState(false);
+
+  const MAX_COMPARE = 4;
 
   useEffect(() => {
     let cancelled = false;
@@ -106,6 +111,14 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
         else next.delete(transactionId);
         return next;
       });
+    });
+  }
+
+  function toggleCompare(transactionId: string) {
+    setCompareIds((prev) => {
+      if (prev.includes(transactionId)) return prev.filter((id) => id !== transactionId);
+      if (prev.length >= MAX_COMPARE) return prev;
+      return [...prev, transactionId];
     });
   }
 
@@ -204,9 +217,20 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
                 )}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate font-body text-sm font-medium text-text-primary">{c.building}</p>
-                    <p className="truncate text-xs text-text-muted">{c.community}</p>
+                  <div className="flex min-w-0 items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={compareIds.includes(c.transaction_id)}
+                      onChange={() => toggleCompare(c.transaction_id)}
+                      onClick={(e) => e.stopPropagation()}
+                      disabled={!compareIds.includes(c.transaction_id) && compareIds.length >= MAX_COMPARE}
+                      aria-label={`Select ${c.building} to compare`}
+                      className="mt-1 h-3.5 w-3.5 shrink-0 accent-brass"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate font-body text-sm font-medium text-text-primary">{c.building}</p>
+                      <p className="truncate text-xs text-text-muted">{c.community}</p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-1">
                     <ProvenanceBadge provenance={c.data_provenance} />
@@ -230,6 +254,7 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
           <table className="hidden w-full min-w-[520px] border-collapse text-sm sm:table">
             <thead className="sticky top-0 bg-surface">
               <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-muted">
+                <th className="px-3 py-2 font-medium" aria-label="Compare" />
                 <th className="px-3 py-2 font-medium">Transaction</th>
                 <th className="px-3 py-2 font-medium">Building</th>
                 <th className="px-3 py-2 font-medium">Community</th>
@@ -251,6 +276,17 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
                     selectedId === c.transaction_id && "bg-brass/10"
                   )}
                 >
+                  <td className="px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={compareIds.includes(c.transaction_id)}
+                      onChange={() => toggleCompare(c.transaction_id)}
+                      onClick={(e) => e.stopPropagation()}
+                      disabled={!compareIds.includes(c.transaction_id) && compareIds.length >= MAX_COMPARE}
+                      aria-label={`Select ${c.building} to compare`}
+                      className="h-3.5 w-3.5 accent-brass"
+                    />
+                  </td>
                   <td className="px-3 py-2 text-brass">{c.transaction_id}</td>
                   <td className="px-3 py-2 font-body text-text-primary">{c.building}</td>
                   <td className="px-3 py-2 font-body text-text-muted">{c.community}</td>
@@ -273,6 +309,32 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
           </table>
         </div>
       </div>
+
+      {compareIds.length >= 2 && (
+        <div className="fixed inset-x-0 bottom-20 z-30 flex justify-center md:bottom-4">
+          <div className="flex items-center gap-3 rounded-full border border-border bg-surface px-4 py-2 shadow-lg shadow-black/10 backdrop-blur-md dark:shadow-black/30">
+            <span className="text-sm text-text-primary">{compareIds.length} selected</span>
+            <Button type="button" size="sm" onClick={() => setShowComparison(true)}>
+              <Scale size={14} />
+              Compare
+            </Button>
+            <button
+              type="button"
+              onClick={() => setCompareIds([])}
+              className="text-xs text-text-muted underline decoration-dotted hover:text-text-primary"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showComparison && (
+        <CompComparisonModal
+          comps={comps.filter((c) => compareIds.includes(c.transaction_id))}
+          onClose={() => setShowComparison(false)}
+        />
+      )}
     </div>
   );
 }
