@@ -94,7 +94,7 @@ async def list_deals(
 @router.get("/{query_id}")
 async def get_deal(query_id: str, current_user: User = Depends(get_current_user)) -> dict:
     row = _get_owned_deal(query_id, current_user.user_id)
-    return row["deal_state"] or {
+    state = row["deal_state"] or {
         "query_id": query_id,
         "raw_query": row["raw_query"],
         "agent_trace": [],
@@ -102,6 +102,32 @@ async def get_deal(query_id: str, current_user: User = Depends(get_current_user)
         "retrieved_clauses": [],
         "compliance_flags": [],
     }
+    # job_status is the persisted, authoritative record (Phase 4) -- distinct
+    # from agent_trace, which can't tell "never started" apart from "started
+    # and the process died mid-run". Merged in rather than embedded in
+    # deal_state itself, which is the pipeline's own output, not job metadata.
+    return {**state, "job_status": row["status"], "attempt_count": row["attempt_count"]}
+
+
+@router.post("/{query_id}/retry", status_code=202)
+async def retry_deal(query_id: str, current_user: User = Depends(get_current_user)) -> DealQueryResponse:
+    """Re-runs a deal query that failed. Only valid from status='failed' --
+    retrying a 'done' run would silently overwrite a good result, and
+    retrying a 'pending'/'running' one risks a second concurrent run of the
+    same query_id. Free: quota is charged once at creation (by row count),
+    not per attempt, so a retry never costs the user anything extra."""
+    row = _get_owned_deal(query_id, current_user.user_id)
+    if row["status"] != "failed":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Only a failed deal query can be retried (current status: {row['status']}).",
+        )
+
+    parsed_id = _parse_query_id(query_id)
+    task = asyncio.create_task(run_pipeline(parsed_id, row["raw_query"]))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    return DealQueryResponse(query_id=query_id)
 
 
 @router.get("/{query_id}/trace")

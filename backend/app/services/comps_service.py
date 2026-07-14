@@ -82,6 +82,11 @@ def query_transactions_sql(
                 "price": float(txn.price_aed) if txn.price_aed is not None else None,
                 "price_per_sqft": float(txn.price_per_sqft) if txn.price_per_sqft is not None else None,
                 "date": txn.transaction_date.isoformat() if txn.transaction_date else None,
+                # Phase 7: surfaced end-to-end (API -> UI) so a user can always
+                # tell whether a comp is synthetic demo data, the real DLD/Kaggle
+                # open dataset, or (once one exists) a licensed partner feed --
+                # see app/services/data_source.py and README "Data partnership".
+                "data_provenance": txn.data_provenance,
             }
         )
     return comps

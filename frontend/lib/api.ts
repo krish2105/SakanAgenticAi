@@ -270,6 +270,15 @@ export async function submitDealQuery(raw_query: string, token: string): Promise
   return res.json();
 }
 
+/** Re-runs a deal query that previously failed (job_status === "failed").
+ * Free: quota is charged once at creation, never per retry attempt. */
+export async function retryDealQuery(queryId: string, token: string): Promise<{ query_id: string }> {
+  const res = await authedFetch(`/deals/${queryId}/retry`, { method: "POST" }, token);
+  if (res.status === 401) throw new AuthRequiredError();
+  if (!res.ok) throw new Error(await parseAuthError(res));
+  return res.json();
+}
+
 export async function fetchDeal(queryId: string, token: string): Promise<DealState | null> {
   try {
     return await authedGet<DealState>(`/deals/${queryId}`, token);

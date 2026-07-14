@@ -138,6 +138,14 @@ class DealQuery(Base):
     agent_trace = Column(JSONType)
     created_at = Column(DateTime, server_default=func.now())
 
+    # Job durability (Phase 4 of the MVP roadmap). The pipeline runs
+    # fire-and-forget in-process (see pipeline_runner.py); if the instance
+    # restarts mid-run, deal_state/agent_trace alone can't distinguish "never
+    # started" from "started and got killed" from "genuinely still running" --
+    # this column is the authoritative record. pending -> running -> done|failed.
+    status = Column(String(20), nullable=False, server_default=text("'pending'"))
+    attempt_count = Column(Integer, nullable=False, server_default=text("0"))
+
     owner = relationship("User", back_populates="deal_queries")
 
 

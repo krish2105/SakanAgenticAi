@@ -1,6 +1,36 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { T } from "@/components/t";
 import type { Comp } from "@/lib/types";
+
+/** Phase 7: every comp always shows whether it's demo/synthetic data, the
+ * real public DLD/Kaggle open dataset, or (once one exists) a licensed
+ * partner feed -- so "is this a real number?" never has to be taken on
+ * faith. Unknown/missing provenance renders nothing rather than guessing. */
+export function ProvenanceBadge({ provenance }: { provenance?: string }) {
+  if (provenance === "licensed_partner") {
+    return (
+      <Badge variant="positive">
+        <T k="comps.provenanceLicensedPartner" />
+      </Badge>
+    );
+  }
+  if (provenance === "dld_kaggle") {
+    return (
+      <Badge variant="default">
+        <T k="comps.provenanceDldKaggle" />
+      </Badge>
+    );
+  }
+  if (provenance === "synthetic") {
+    return (
+      <Badge variant="muted">
+        <T k="comps.provenanceSynthetic" />
+      </Badge>
+    );
+  }
+  return null;
+}
 
 export function CompsTable({ comps }: { comps: Comp[] }) {
   return (
@@ -35,8 +65,11 @@ export function CompsTable({ comps }: { comps: Comp[] }) {
                   <th className="py-2 pr-3 font-medium">
                     <T k="comps.colPricePerSqft" />
                   </th>
-                  <th className="py-2 font-medium">
+                  <th className="py-2 pr-3 font-medium">
                     <T k="comps.colDate" />
+                  </th>
+                  <th className="py-2 font-medium">
+                    <T k="comps.colSource" />
                   </th>
                 </tr>
               </thead>
@@ -48,7 +81,10 @@ export function CompsTable({ comps }: { comps: Comp[] }) {
                     <td className="py-2 pr-3">{c.bedrooms}</td>
                     <td className="py-2 pr-3 text-text-primary">AED {c.price?.toLocaleString()}</td>
                     <td className="py-2 pr-3 text-text-muted">{c.price_per_sqft?.toLocaleString()}</td>
-                    <td className="py-2 text-text-muted">{c.date}</td>
+                    <td className="py-2 pr-3 text-text-muted">{c.date}</td>
+                    <td className="py-2">
+                      <ProvenanceBadge provenance={c.data_provenance} />
+                    </td>
                   </tr>
                 ))}
               </tbody>

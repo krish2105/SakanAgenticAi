@@ -3,14 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText } from "lucide-react";
+import { FileText, RotateCcw } from "lucide-react";
 import { AgentTraceDrawer } from "@/components/agent-trace-drawer";
 import { CompsTable } from "@/components/comps-table";
 import { ValuationCard } from "@/components/valuation-card";
 import { ComplianceCard } from "@/components/compliance-card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
-import { dealStreamUrl, fetchDeal, AuthRequiredError } from "@/lib/api";
+import { useLocale } from "@/components/locale-provider";
+import { useToast } from "@/components/ui/toast";
+import { dealStreamUrl, fetchDeal, retryDealQuery, AuthRequiredError } from "@/lib/api";
 import type { DealState } from "@/lib/types";
 
 /** Has the pipeline reached a terminal state for this deal? Used to decide
@@ -27,10 +29,28 @@ function isTerminal(deal: DealState): boolean {
 export function DealResultClient({ queryId }: { queryId: string }) {
   const router = useRouter();
   const { token, loading: authLoading } = useAuth();
+  const { t } = useLocale();
+  const { toast } = useToast();
   const [deal, setDeal] = useState<DealState | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [connectionState, setConnectionState] = useState<"connecting" | "open" | "closed">("connecting");
+  const [jobFailed, setJobFailed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
+
+  async function handleRetry() {
+    if (!token || retrying) return;
+    setRetrying(true);
+    try {
+      await retryDealQuery(queryId, token);
+      // Simplest correct way to restart the whole live-tracking effect
+      // (fresh fetch + WS connect + reconnection state) cleanly.
+      window.location.reload();
+    } catch (err) {
+      setRetrying(false);
+      toast(err instanceof Error ? err.message : "Retry failed", "error");
+    }
+  }
 
   useEffect(() => {
     if (authLoading) return;
@@ -77,6 +97,9 @@ export function DealResultClient({ queryId }: { queryId: string }) {
           if (message.type === "complete" || message.type === "error") {
             completed = true;
           }
+          if (message.type === "error") {
+            setJobFailed(true);
+          }
         } catch {
           // ignore malformed frames
         }
@@ -107,6 +130,7 @@ export function DealResultClient({ queryId }: { queryId: string }) {
           return;
         }
         setDeal(normalize(initial));
+        if (initial.job_status === "failed") setJobFailed(true);
         if (isTerminal(initial)) {
           // Pipeline already finished before this page loaded -- nothing to
           // stream, so don't open (and endlessly reconnect) a socket.
@@ -124,6 +148,7 @@ export function DealResultClient({ queryId }: { queryId: string }) {
             const latest = await fetchDeal(queryId, token);
             if (cancelled || !latest) return;
             setDeal(normalize(latest));
+            if (latest.job_status === "failed") setJobFailed(true);
             if (isTerminal(latest)) {
               completed = true;
               socketRef.current?.close();
@@ -191,6 +216,16 @@ export function DealResultClient({ queryId }: { queryId: string }) {
               </Link>
             )}
           </div>
+
+          {jobFailed && (
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-negative/40 bg-negative/10 px-4 py-3">
+              <p className="text-sm text-text-primary">{t("agentTrace.failed")}</p>
+              <Button size="sm" variant="outline" onClick={handleRetry} disabled={retrying}>
+                <RotateCcw size={14} />
+                {retrying ? t("agentTrace.retrying") : t("agentTrace.retry")}
+              </Button>
+            </div>
+          )}
 
           <div className="mt-6 flex flex-col gap-4">
             <CompsTable comps={deal.retrieved_comps} />

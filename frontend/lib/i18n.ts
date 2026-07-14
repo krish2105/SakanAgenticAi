@@ -82,6 +82,9 @@ const en: Dict = {
   "agentTrace.valuation": "Valuation",
   "agentTrace.compliance": "Compliance",
   "agentTrace.memo": "Memo",
+  "agentTrace.failed": "This query failed to complete.",
+  "agentTrace.retry": "Retry",
+  "agentTrace.retrying": "Retrying…",
 
   "valuation.title": "Valuation Range",
   "valuation.method": "Method",
@@ -102,6 +105,10 @@ const en: Dict = {
   "comps.colPrice": "Price",
   "comps.colPricePerSqft": "AED/sqft",
   "comps.colDate": "Date",
+  "comps.colSource": "Source",
+  "comps.provenanceSynthetic": "Demo data",
+  "comps.provenanceDldKaggle": "DLD (public)",
+  "comps.provenanceLicensedPartner": "Licensed",
 
   "footer.tagline": "Agentic deal intelligence for Dubai real estate. Every claim shows its work.",
   "footer.product": "Product",
@@ -195,6 +202,9 @@ const ar: Dict = {
   "agentTrace.valuation": "التقييم",
   "agentTrace.compliance": "الامتثال",
   "agentTrace.memo": "المذكرة",
+  "agentTrace.failed": "تعذّر إكمال هذا الاستعلام.",
+  "agentTrace.retry": "إعادة المحاولة",
+  "agentTrace.retrying": "جارٍ إعادة المحاولة…",
 
   "valuation.title": "نطاق التقييم",
   "valuation.method": "الطريقة",
@@ -215,6 +225,10 @@ const ar: Dict = {
   "comps.colPrice": "السعر",
   "comps.colPricePerSqft": "درهم/قدم²",
   "comps.colDate": "التاريخ",
+  "comps.colSource": "المصدر",
+  "comps.provenanceSynthetic": "بيانات تجريبية",
+  "comps.provenanceDldKaggle": "دائرة الأراضي (عامة)",
+  "comps.provenanceLicensedPartner": "مرخّصة",
 
   "footer.tagline": "تحليل الصفقات العقارية بالذكاء الاصطناعي الوكيل لسوق دبي. كل ادعاء يوثّق مصدره.",
   "footer.product": "المنتج",

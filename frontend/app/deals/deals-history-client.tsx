@@ -12,9 +12,10 @@ import { fetchDeals, AuthRequiredError } from "@/lib/api";
 import type { DealStatus, DealSummary } from "@/lib/types";
 
 const STATUS_META: Record<DealStatus, { label: string; variant: "positive" | "muted" | "negative" }> = {
-  complete: { label: "Complete", variant: "positive" },
-  processing: { label: "Processing", variant: "muted" },
-  error: { label: "Error", variant: "negative" },
+  done: { label: "Complete", variant: "positive" },
+  pending: { label: "Processing", variant: "muted" },
+  running: { label: "Processing", variant: "muted" },
+  failed: { label: "Failed", variant: "negative" },
 };
 
 function formatDate(iso?: string | null): string {
@@ -137,7 +138,7 @@ export function DealsHistoryClient() {
         {!isLoading &&
           !error &&
           deals?.map((deal) => {
-            const meta = STATUS_META[deal.status] ?? STATUS_META.processing;
+            const meta = STATUS_META[deal.status] ?? STATUS_META.pending;
             return (
               <Link
                 key={deal.query_id}

@@ -26,7 +26,7 @@ def ensure_tables() -> None:
     Base.metadata.create_all(get_engine(), tables=[User.__table__, DealQuery.__table__, AuditLog.__table__])
 
 
-def _persist(query_id: int, state_dict: dict) -> None:
+def _persist(query_id: int, state_dict: dict, status: str) -> None:
     session_factory = get_session_factory()
     with session_factory() as session:
         row = session.get(DealQuery, query_id)
@@ -35,6 +35,7 @@ def _persist(query_id: int, state_dict: dict) -> None:
         row.query_type = state_dict.get("query_type")
         row.deal_state = state_dict
         row.agent_trace = state_dict.get("agent_trace", [])
+        row.status = status
         session.add(row)
 
         for entry in state_dict.get("agent_trace", []):
@@ -44,9 +45,26 @@ def _persist(query_id: int, state_dict: dict) -> None:
         session.commit()
 
 
+def _mark_running(query_id: int) -> None:
+    """Flips status to 'running' and bumps attempt_count the moment the
+    worker thread actually picks up the job -- separate from _persist so this
+    still records "an attempt was made" even if the pipeline crashes before
+    producing any state at all (e.g. get_deal_pipeline() itself raising)."""
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        row = session.get(DealQuery, query_id)
+        if row is None:
+            return
+        row.status = "running"
+        row.attempt_count = (row.attempt_count or 0) + 1
+        session.add(row)
+        session.commit()
+
+
 def _run_sync(query_id: int, raw_query: str, loop: asyncio.AbstractEventLoop) -> None:
     query_id_str = str(query_id)
     last_state: dict = {"query_id": query_id_str, "raw_query": raw_query, "agent_trace": []}
+    _mark_running(query_id)
     try:
         pipeline = get_deal_pipeline()
         initial_state = DealState(query_id=query_id_str, raw_query=raw_query)
@@ -54,14 +72,14 @@ def _run_sync(query_id: int, raw_query: str, loop: asyncio.AbstractEventLoop) ->
         for state_dict in pipeline.stream(initial_state.model_dump(), stream_mode="values"):
             last_state = state_dict
             publish_threadsafe(loop, query_id_str, {"type": "state", "data": state_dict})
-        _persist(query_id, last_state)
+        _persist(query_id, last_state, status="done")
         publish_threadsafe(loop, query_id_str, {"type": "complete", "data": last_state})
     except Exception as exc:  # noqa: BLE001
         log.exception("Pipeline run failed for query_id=%s", query_id)
         last_state.setdefault("agent_trace", []).append(
             {"agent": "pipeline", "status": "error", "detail": str(exc)}
         )
-        _persist(query_id, last_state)
+        _persist(query_id, last_state, status="failed")
         publish_threadsafe(loop, query_id_str, {"type": "error", "detail": str(exc)})
 
 
@@ -74,7 +92,15 @@ def create_deal_query(raw_query: str, owner_id: int) -> int:
     ensure_tables()
     session_factory = get_session_factory()
     with session_factory() as session:
-        row = DealQuery(owner_id=owner_id, raw_query=raw_query, query_type=None, deal_state=None, agent_trace=[])
+        row = DealQuery(
+            owner_id=owner_id,
+            raw_query=raw_query,
+            query_type=None,
+            deal_state=None,
+            agent_trace=[],
+            status="pending",
+            attempt_count=0,
+        )
         session.add(row)
         session.commit()
         session.refresh(row)
@@ -95,21 +121,10 @@ def get_deal_query(query_id: int) -> dict | None:
             "query_type": row.query_type,
             "deal_state": row.deal_state,
             "agent_trace": row.agent_trace,
+            "status": row.status,
+            "attempt_count": row.attempt_count,
             "created_at": row.created_at.isoformat() if row.created_at else None,
         }
-
-
-def _derive_status(deal_state: dict | None, agent_trace: list | None) -> str:
-    """Best-effort status for the deal-history list. Phase 4 will persist an
-    authoritative status column; until then this is derived from what the
-    pipeline stored: no state yet => still processing; an error trace entry =>
-    error; otherwise complete."""
-    trace = agent_trace or (deal_state or {}).get("agent_trace") or []
-    if any(entry.get("status") == "error" for entry in trace):
-        return "error"
-    if not deal_state:
-        return "processing"
-    return "complete"
 
 
 def list_deal_queries(owner_id: int, limit: int = 20, offset: int = 0) -> list[dict]:
@@ -137,7 +152,7 @@ def list_deal_queries(owner_id: int, limit: int = 20, offset: int = 0) -> list[d
                 "query_id": r.query_id,
                 "raw_query": r.raw_query,
                 "query_type": r.query_type,
-                "status": _derive_status(r.deal_state, r.agent_trace),
+                "status": r.status,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
             }
             for r in rows

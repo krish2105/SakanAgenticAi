@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { CompsFilterBar, type CompsFilters } from "@/components/comps-filter-bar";
+import { ProvenanceBadge } from "@/components/comps-table";
+import { T } from "@/components/t";
 import { useLocale } from "@/components/locale-provider";
 import { fetchComps } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -74,6 +76,9 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
                 <th className="px-3 py-2 font-medium">Community</th>
                 <th className="px-3 py-2 font-medium">Beds</th>
                 <th className="px-3 py-2 font-medium">Price</th>
+                <th className="px-3 py-2 font-medium">
+                  <T k="comps.colSource" />
+                </th>
               </tr>
             </thead>
             <tbody className="font-mono text-xs">
@@ -91,6 +96,9 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
                   <td className="px-3 py-2 font-body text-text-muted">{c.community}</td>
                   <td className="px-3 py-2">{c.bedrooms}</td>
                   <td className="px-3 py-2 text-text-primary">AED {c.price?.toLocaleString()}</td>
+                  <td className="px-3 py-2">
+                    <ProvenanceBadge provenance={c.data_provenance} />
+                  </td>
                 </tr>
               ))}
             </tbody>

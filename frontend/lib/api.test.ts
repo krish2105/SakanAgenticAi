@@ -7,6 +7,7 @@ import {
   onTokenChange,
   loginUser,
   fetchDeals,
+  retryDealQuery,
   AuthRequiredError,
 } from "@/lib/api";
 
@@ -102,5 +103,35 @@ describe("silent refresh on 401", () => {
     await expect(fetchDeals("expired-access")).rejects.toBeInstanceOf(AuthRequiredError);
     // A failed refresh clears stored tokens.
     expect(getAccessToken()).toBeNull();
+  });
+});
+
+describe("retryDealQuery", () => {
+  beforeEach(() => clearTokens());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("posts to the retry endpoint and returns the query id", async () => {
+    setTokens("access-1");
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toContain("/deals/42/retry");
+      expect(init?.method).toBe("POST");
+      return jsonResponse(202, { query_id: "42" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await retryDealQuery("42", "access-1");
+    expect(result.query_id).toBe("42");
+  });
+
+  it("surfaces the 409 message when the deal isn't in a retryable state", async () => {
+    setTokens("access-1");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(409, { detail: "Only a failed deal query can be retried (current status: done)." })
+      )
+    );
+
+    await expect(retryDealQuery("42", "access-1")).rejects.toThrow(/current status: done/);
   });
 });

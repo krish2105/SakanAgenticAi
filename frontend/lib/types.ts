@@ -12,6 +12,8 @@ export interface Tick {
   type: TickType;
 }
 
+export type DataProvenance = "synthetic" | "dld_kaggle" | "licensed_partner";
+
 export interface Comp {
   transaction_id: string;
   building: string;
@@ -22,6 +24,7 @@ export interface Comp {
   price: number;
   price_per_sqft: number;
   date: string;
+  data_provenance?: DataProvenance | string;
 }
 
 export interface ComplianceClause {
@@ -68,9 +71,16 @@ export interface DealState {
   memo_markdown?: string | null;
 
   agent_trace: AgentTraceEntry[];
+
+  // Merged in by GET /deals/{id} from the persisted DealQuery row (Phase 4) --
+  // job metadata, not part of the pipeline's own output.
+  job_status?: DealStatus;
+  attempt_count?: number;
 }
 
-export type DealStatus = "processing" | "complete" | "error";
+// Mirrors the backend's persisted DealQuery.status column (Phase 4: job
+// durability) -- the authoritative record, not derived from agent_trace.
+export type DealStatus = "pending" | "running" | "done" | "failed";
 
 export interface DealSummary {
   query_id: number;
