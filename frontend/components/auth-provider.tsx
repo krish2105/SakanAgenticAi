@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { capture, identifyUser, resetAnalytics } from "@/lib/analytics";
 import {
   clearTokens,
   fetchMe,
@@ -66,17 +67,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     await loginUser(email, password); // stores tokens
     setToken(getAccessToken());
-    setUser(await fetchMe(getAccessToken() || ""));
+    const me = await fetchMe(getAccessToken() || "");
+    setUser(me);
+    if (me) {
+      identifyUser(me.user_id, { email: me.email, role: me.role });
+      capture("user_logged_in");
+    }
   }, []);
 
   const register = useCallback(async (email: string, password: string, fullName?: string) => {
     await registerUser(email, password, fullName); // stores tokens
     setToken(getAccessToken());
-    setUser(await fetchMe(getAccessToken() || ""));
+    const me = await fetchMe(getAccessToken() || "");
+    setUser(me);
+    if (me) {
+      identifyUser(me.user_id, { email: me.email, role: me.role });
+      capture("user_signed_up");
+    }
   }, []);
 
   const logout = useCallback(() => {
     void logoutUser(); // revoke server-side + clear storage (fires onTokenChange)
+    capture("user_logged_out");
+    resetAnalytics();
     setToken(null);
     setUser(null);
     router.push("/login");

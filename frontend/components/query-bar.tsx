@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { capture } from "@/lib/analytics";
 import { submitDealQuery, AuthRequiredError } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
 import { useLocale } from "@/components/locale-provider";
@@ -37,6 +38,7 @@ export function QueryBar() {
     setError(null);
     try {
       const { query_id } = await submitDealQuery(raw_query, token);
+      capture("deal_query_submitted", { query_length: raw_query.length });
       router.push(`/deals/${query_id}`);
     } catch (err) {
       if (err instanceof AuthRequiredError) {

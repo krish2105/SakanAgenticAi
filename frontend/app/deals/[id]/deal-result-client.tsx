@@ -9,6 +9,7 @@ import { CompsTable } from "@/components/comps-table";
 import { ValuationCard } from "@/components/valuation-card";
 import { ComplianceCard } from "@/components/compliance-card";
 import { Button } from "@/components/ui/button";
+import { capture } from "@/lib/analytics";
 import { useAuth } from "@/components/auth-provider";
 import { useLocale } from "@/components/locale-provider";
 import { useToast } from "@/components/ui/toast";
@@ -43,6 +44,7 @@ export function DealResultClient({ queryId }: { queryId: string }) {
     setRetrying(true);
     try {
       await retryDealQuery(queryId, token);
+      capture("deal_retry_clicked", { query_id: queryId });
       // Simplest correct way to restart the whole live-tracking effect
       // (fresh fetch + WS connect + reconnection state) cleanly.
       window.location.reload();
@@ -130,6 +132,7 @@ export function DealResultClient({ queryId }: { queryId: string }) {
           return;
         }
         setDeal(normalize(initial));
+        capture("deal_viewed", { query_id: queryId, query_type: initial.query_type });
         if (initial.job_status === "failed") setJobFailed(true);
         if (isTerminal(initial)) {
           // Pipeline already finished before this page loaded -- nothing to

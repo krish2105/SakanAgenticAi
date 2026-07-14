@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { capture } from "@/lib/analytics";
 import { useAuth } from "@/components/auth-provider";
 import { useLocale } from "@/components/locale-provider";
 import {
@@ -46,6 +47,7 @@ export function BillingClient({ plans }: { plans: BillingPlans }) {
     if (!token) return;
     setError(null);
     setPendingTier(tier);
+    capture("upgrade_clicked", { tier });
     try {
       const url = await startCheckout(tier, token);
       window.location.assign(url);
