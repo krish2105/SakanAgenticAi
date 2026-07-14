@@ -5,6 +5,7 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
+from app import config
 from app.auth import get_current_user, get_current_user_ws
 from app.ratelimit import client_ip_key, limiter  # noqa: F401  (client_ip_key re-exported for tests)
 from app.db import get_session_factory
@@ -15,8 +16,11 @@ from app.services.pipeline_runner import (
     create_deal_query,
     ensure_tables,
     get_deal_query,
+    get_shared_memo,
     list_deal_queries,
+    revoke_share_token,
     run_pipeline,
+    set_share_token,
 )
 from app.streaming import subscribe, unsubscribe
 
@@ -155,6 +159,46 @@ async def get_deal_memo(query_id: str, format: str = "json", current_user: User 
         )
 
     return {"query_id": query_id, "memo_markdown": memo_markdown}
+
+
+class ShareResponse(BaseModel):
+    share_token: str
+    share_url: str
+
+
+@router.post("/{query_id}/share", response_model=ShareResponse)
+async def share_deal_memo(query_id: str, current_user: User = Depends(get_current_user)) -> ShareResponse:
+    """Mints (or returns the existing) public share link for this deal's
+    memo. Idempotent on purpose -- clicking "Share" twice must not rotate
+    the link out from under someone who already sent it out."""
+    row = _get_owned_deal(query_id, current_user.user_id)
+    if not (row.get("deal_state") or {}).get("memo_markdown"):
+        raise HTTPException(status_code=409, detail="Memo not yet generated for this deal")
+
+    token = set_share_token(_parse_query_id(query_id), current_user.user_id)
+    if token is None:
+        raise HTTPException(status_code=404, detail="Deal query not found")
+    return ShareResponse(share_token=token, share_url=f"{config.FRONTEND_URL}/memo/{token}")
+
+
+@router.delete("/{query_id}/share", status_code=204)
+async def unshare_deal_memo(query_id: str, current_user: User = Depends(get_current_user)) -> Response:
+    _get_owned_deal(query_id, current_user.user_id)
+    revoke_share_token(_parse_query_id(query_id), current_user.user_id)
+    return Response(status_code=204)
+
+
+@router.get("/shared/{share_token}")
+@limiter.limit("30/minute")
+async def get_shared_deal_memo(request: Request, share_token: str) -> dict:
+    """Deliberately no auth dependency -- the token itself is the
+    capability, same as any unlisted-link share (Google Docs, Figma, etc).
+    Rate-limited (not auth-gated) since the token space is high-entropy
+    enough that brute force isn't the threat model, but scraping is."""
+    result = get_shared_memo(share_token)
+    if result is None:
+        raise HTTPException(status_code=404, detail="This share link is invalid or has been revoked")
+    return result
 
 
 async def _stream_deal(websocket: WebSocket, query_id: str) -> None:

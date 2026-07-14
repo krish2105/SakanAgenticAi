@@ -182,6 +182,13 @@ class DealQuery(Base):
     status = Column(String(20), nullable=False, server_default=text("'pending'"))
     attempt_count = Column(Integer, nullable=False, server_default=text("0"))
 
+    # Shareable public memo links: NULL means "not shared". The token itself
+    # (not a hash of it) is stored, since -- unlike an auth secret -- the
+    # token IS the read-capability by design: anyone holding the URL can view
+    # the memo, and revoking just means clearing this column, not comparing
+    # a submitted value against anything.
+    share_token = Column(String(64), nullable=True, unique=True, index=True)
+
     owner = relationship("User", back_populates="deal_queries")
 
 

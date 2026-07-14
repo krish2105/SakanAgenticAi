@@ -451,6 +451,42 @@ export async function fetchDealMemo(queryId: string, token: string): Promise<{ m
   }
 }
 
+// --- Shareable public memo links ---
+
+export interface ShareLink {
+  share_token: string;
+  share_url: string;
+}
+
+/** Idempotent server-side (same deal always returns the same token until
+ * revoked), so it's safe to call every time the share UI opens rather than
+ * tracking share state locally. */
+export async function createMemoShareLink(queryId: string, token: string): Promise<ShareLink> {
+  const res = await authedFetch(`/deals/${queryId}/share`, { method: "POST" }, token);
+  if (res.status === 401) throw new AuthRequiredError();
+  if (!res.ok) throw new Error(await parseAuthError(res));
+  return res.json();
+}
+
+export async function revokeMemoShareLink(queryId: string, token: string): Promise<void> {
+  const res = await authedFetch(`/deals/${queryId}/share`, { method: "DELETE" }, token);
+  if (res.status === 401) throw new AuthRequiredError();
+  if (!res.ok && res.status !== 204) throw new Error(await parseAuthError(res));
+}
+
+export interface SharedMemo {
+  memo_markdown: string;
+  raw_query: string;
+  created_at: string | null;
+}
+
+/** No auth -- this is the public read path a share link's recipient hits. */
+export async function fetchSharedMemo(shareToken: string): Promise<SharedMemo | null> {
+  const res = await fetch(`${API_BASE}/deals/shared/${shareToken}`, { cache: "no-store" });
+  if (!res.ok) return null;
+  return res.json();
+}
+
 export async function fetchDeals(
   token: string,
   { limit = 20, offset = 0 }: { limit?: number; offset?: number } = {}

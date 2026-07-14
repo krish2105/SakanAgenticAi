@@ -8,6 +8,7 @@ import { useAuth } from "@/components/auth-provider";
 import { fetchDealMemo, AuthRequiredError } from "@/lib/api";
 import { MemoMarkdown } from "./memo-markdown";
 import { ExportPdfButton } from "./export-pdf-button";
+import { ShareMemoButton } from "./share-memo-button";
 
 export default function MemoViewerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -62,7 +63,7 @@ export default function MemoViewerPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <Link
           href={`/deals/${id}`}
           className="flex items-center gap-1 text-sm text-text-muted hover:text-text-primary"
@@ -70,7 +71,10 @@ export default function MemoViewerPage({ params }: { params: Promise<{ id: strin
           <ArrowLeft size={14} />
           Back to deal
         </Link>
-        <ExportPdfButton queryId={id} />
+        <div className="flex flex-wrap items-start gap-2">
+          <ShareMemoButton queryId={id} />
+          <ExportPdfButton queryId={id} />
+        </div>
       </div>
 
       <div className="mt-6 rounded-xl border border-border bg-surface p-6 sm:p-8">

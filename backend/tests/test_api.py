@@ -168,6 +168,73 @@ def test_deal_query_full_lifecycle(monkeypatch, seeded_sqlite_db):
         assert client.get(f"/deals/{query_id}", headers=other_headers).status_code == 404
 
 
+def test_shareable_memo_link_lifecycle(monkeypatch, seeded_sqlite_db):
+    monkeypatch.setattr(query_agent_module, "complete_json", _fake_query_json)
+    monkeypatch.setattr(compliance_agent_module, "retrieve_clauses", lambda q, **k: SAMPLE_CLAUSES)
+    monkeypatch.setattr(compliance_agent_module, "complete_json", _fake_compliance_json)
+
+    with TestClient(app) as client:
+        headers = _register(client, "sharer@example.com")
+
+        res = client.post("/deals/query", json={"raw_query": "2BR Dubai Marina"}, headers=headers)
+        query_id = res.json()["query_id"]
+
+        deal = None
+        for _ in range(50):
+            deal = client.get(f"/deals/{query_id}", headers=headers).json()
+            if deal.get("memo_markdown"):
+                break
+            time.sleep(0.1)
+        assert deal["memo_markdown"]
+
+        # Minting a share link twice is idempotent -- same token both times.
+        share1 = client.post(f"/deals/{query_id}/share", headers=headers)
+        assert share1.status_code == 200
+        token = share1.json()["share_token"]
+        assert share1.json()["share_url"].endswith(f"/memo/{token}")
+
+        share2 = client.post(f"/deals/{query_id}/share", headers=headers)
+        assert share2.json()["share_token"] == token
+
+        # A different user can't mint a share link for someone else's deal.
+        other_headers = _register(client, "not-the-owner@example.com")
+        assert client.post(f"/deals/{query_id}/share", headers=other_headers).status_code == 404
+
+        # The public endpoint needs no auth and returns only memo prose, not
+        # the full deal_state (no comps/valuation internals).
+        public = client.get(f"/deals/shared/{token}")
+        assert public.status_code == 200
+        body = public.json()
+        assert body["memo_markdown"] == deal["memo_markdown"]
+        assert set(body.keys()) == {"memo_markdown", "raw_query", "created_at"}
+
+        # An unknown/garbage token 404s rather than leaking anything.
+        assert client.get("/deals/shared/not-a-real-token").status_code == 404
+
+        # Revoking invalidates the link immediately.
+        revoke = client.delete(f"/deals/{query_id}/share", headers=headers)
+        assert revoke.status_code == 204
+        assert client.get(f"/deals/shared/{token}").status_code == 404
+
+
+def test_share_requires_a_generated_memo(seeded_sqlite_db):
+    from app.services.pipeline_runner import create_deal_query
+
+    with TestClient(app) as client:
+        headers = _register(client, "nomemo@example.com")
+        me = client.get("/auth/me", headers=headers).json()
+
+        # Created directly (not via /deals/query) so the background pipeline
+        # never runs -- this deal genuinely has no memo yet, deterministically.
+        query_id = create_deal_query("2BR Dubai Marina", owner_id=me["user_id"])
+
+        share = client.post(f"/deals/{query_id}/share", headers=headers)
+        assert share.status_code == 409
+
+        public = client.get("/deals/shared/some-token-that-was-never-issued")
+        assert public.status_code == 404
+
+
 def test_deal_query_rejects_empty_query(seeded_sqlite_db):
     with TestClient(app) as client:
         headers = _register(client, "empty-query@example.com")

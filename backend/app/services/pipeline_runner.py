@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import secrets
 
 from app import config
 from app.agents.graph import get_deal_pipeline
@@ -123,6 +124,61 @@ def get_deal_query(query_id: int) -> dict | None:
             "agent_trace": row.agent_trace,
             "status": row.status,
             "attempt_count": row.attempt_count,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "share_token": row.share_token,
+        }
+
+
+def set_share_token(query_id: int, owner_id: int) -> str | None:
+    """Idempotent: returns the existing token if this deal is already shared,
+    otherwise mints one. None means the deal doesn't exist or isn't owned by
+    this user -- callers should 404 either way (see _get_owned_deal)."""
+    ensure_tables()
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        row = session.get(DealQuery, query_id)
+        if row is None or row.owner_id != owner_id:
+            return None
+        if not row.share_token:
+            row.share_token = secrets.token_urlsafe(24)
+            session.commit()
+        return row.share_token
+
+
+def revoke_share_token(query_id: int, owner_id: int) -> bool:
+    ensure_tables()
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        row = session.get(DealQuery, query_id)
+        if row is None or row.owner_id != owner_id:
+            return False
+        row.share_token = None
+        session.commit()
+        return True
+
+
+def get_shared_memo(share_token: str) -> dict | None:
+    """Public lookup by share token -- deliberately returns only the memo
+    prose and enough context to render it, never the full deal_state (raw
+    comps/valuation internals were never part of what "share this memo"
+    means, and this endpoint has no owner check by design since the token
+    itself is the capability)."""
+    from sqlalchemy import select
+
+    ensure_tables()
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        row = session.execute(
+            select(DealQuery).where(DealQuery.share_token == share_token)
+        ).scalar_one_or_none()
+        if row is None:
+            return None
+        memo_markdown = (row.deal_state or {}).get("memo_markdown")
+        if not memo_markdown:
+            return None
+        return {
+            "memo_markdown": memo_markdown,
+            "raw_query": row.raw_query,
             "created_at": row.created_at.isoformat() if row.created_at else None,
         }
 

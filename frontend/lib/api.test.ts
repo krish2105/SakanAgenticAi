@@ -9,6 +9,9 @@ import {
   startDemoSession,
   fetchDeals,
   retryDealQuery,
+  createMemoShareLink,
+  revokeMemoShareLink,
+  fetchSharedMemo,
   fetchAdminStats,
   fetchAdminUsers,
   setAdminUserTier,
@@ -177,6 +180,63 @@ describe("retryDealQuery", () => {
     );
 
     await expect(retryDealQuery("42", "access-1")).rejects.toThrow(/current status: done/);
+  });
+});
+
+describe("shareable memo links", () => {
+  beforeEach(() => clearTokens());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("createMemoShareLink POSTs and returns the share URL", async () => {
+    setTokens("access-1");
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toContain("/deals/42/share");
+      expect(init?.method).toBe("POST");
+      return jsonResponse(200, { share_token: "abc123", share_url: "https://sakan.example/memo/abc123" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await createMemoShareLink("42", "access-1");
+    expect(result.share_url).toBe("https://sakan.example/memo/abc123");
+  });
+
+  it("createMemoShareLink surfaces a 409 when the memo isn't generated yet", async () => {
+    setTokens("access-1");
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(409, { detail: "Memo not yet generated for this deal" })));
+    await expect(createMemoShareLink("42", "access-1")).rejects.toThrow(/not yet generated/);
+  });
+
+  it("revokeMemoShareLink DELETEs the share link", async () => {
+    setTokens("access-1");
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toContain("/deals/42/share");
+      expect(init?.method).toBe("DELETE");
+      return { ok: false, status: 204, json: async () => ({}) } as Response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(revokeMemoShareLink("42", "access-1")).resolves.toBeUndefined();
+  });
+
+  it("fetchSharedMemo needs no auth token and returns the memo on success", async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toContain("/deals/shared/abc123");
+      expect(init?.headers).toBeUndefined();
+      return jsonResponse(200, {
+        memo_markdown: "# Memo",
+        raw_query: "2BR Dubai Marina",
+        created_at: "2026-01-01T00:00:00",
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const memo = await fetchSharedMemo("abc123");
+    expect(memo?.memo_markdown).toBe("# Memo");
+  });
+
+  it("fetchSharedMemo returns null for a revoked or unknown token", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(404, { detail: "This share link is invalid or has been revoked" })));
+    expect(await fetchSharedMemo("gone")).toBeNull();
   });
 });
 
