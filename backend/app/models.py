@@ -140,6 +140,29 @@ class AuthToken(Base):
     last_used_at = Column(DateTime, nullable=True)
 
 
+class ApiKey(Base):
+    """Partner/embed API keys (Phase 20) -- a rate-limited, read-only comps
+    endpoint reachable outside the web app/WhatsApp/extension, for a
+    proptech tool wanting to embed Sakan AI's comps data. Same
+    hash-not-raw-value storage pattern as AuthToken: a DB leak hands over no
+    usable key. No billing/quota tie-in yet -- gated purely by
+    app.ratelimit's per-key rate limit, not by Stripe tier; that's a
+    deliberate scope decision, not an oversight (see README "Partner API")."""
+
+    __tablename__ = "api_keys"
+
+    api_key_id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    key_hash = Column(String(64), nullable=False, unique=True, index=True)
+    # Shown in the UI so a user can tell keys apart without ever re-displaying
+    # the full secret (e.g. "sk_live_ab12cd34...").
+    key_prefix = Column(String(20), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    last_used_at = Column(DateTime, nullable=True)
+    revoked = Column(Boolean, nullable=False, server_default=text("false"))
+
+
 class DealQuery(Base):
     __tablename__ = "deal_queries"
 

@@ -5,11 +5,21 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/components/auth-provider";
-import { fetchSessions, revokeAllSessions, revokeSession, type AuthSession } from "@/lib/api";
+import {
+  fetchSessions,
+  revokeAllSessions,
+  revokeSession,
+  fetchApiKeys,
+  createApiKey,
+  revokeApiKey,
+  type AuthSession,
+  type ApiKeySummary,
+} from "@/lib/api";
 
 export function AccountClient() {
   const router = useRouter();
@@ -70,6 +80,7 @@ export function AccountClient() {
       </Card>
 
       {!loading && user && <SessionsPanel />}
+      {!loading && user && <ApiKeysPanel />}
     </div>
   );
 }
@@ -172,6 +183,132 @@ function SessionsPanel() {
             </Button>
           </>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ApiKeysPanel() {
+  const { token } = useAuth();
+  const { toast } = useToast();
+  const [keys, setKeys] = useState<ApiKeySummary[] | null>(null);
+  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [justCreatedKey, setJustCreatedKey] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    if (!token) return;
+    fetchApiKeys(token)
+      .then((data) => setKeys(data))
+      .catch(() => toast("Couldn't load API keys", "error"));
+  }, [token, toast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!token || !newName.trim()) return;
+    setCreating(true);
+    try {
+      const created = await createApiKey(newName.trim(), token);
+      setJustCreatedKey(created.api_key);
+      setNewName("");
+      load();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to create API key", "error");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleRevoke(id: number) {
+    if (!token) return;
+    setBusyId(id);
+    try {
+      await revokeApiKey(id, token);
+      setKeys((prev) => (prev ? prev.filter((k) => k.id !== id) : prev));
+      toast("API key revoked", "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to revoke key", "error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle>Developer API keys</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <p className="text-xs text-text-muted">
+          Read-only, rate-limited access to comps data for your own integrations. Send the key as
+          an <code className="rounded bg-surface-raised px-1">X-API-Key</code> header to{" "}
+          <code className="rounded bg-surface-raised px-1">GET /partner/v1/comps</code>.
+        </p>
+
+        {justCreatedKey && (
+          <div className="rounded-lg border border-brass/40 bg-brass/10 p-3">
+            <p className="text-xs font-medium text-text-primary">
+              Copy this now — it won&apos;t be shown again:
+            </p>
+            <div className="mt-1 flex items-center gap-2">
+              <code className="min-w-0 flex-1 truncate rounded bg-surface px-2 py-1 text-xs text-brass">
+                {justCreatedKey}
+              </code>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  navigator.clipboard?.writeText(justCreatedKey);
+                  toast("Copied to clipboard", "success");
+                }}
+              >
+                Copy
+              </Button>
+            </div>
+            <button
+              onClick={() => setJustCreatedKey(null)}
+              className="mt-2 text-xs text-text-muted underline decoration-dotted hover:text-text-primary"
+            >
+              Done
+            </button>
+          </div>
+        )}
+
+        {keys === null ? (
+          <Skeleton className="h-10 w-full" />
+        ) : keys.length === 0 ? (
+          <p className="text-sm text-text-muted">No API keys yet.</p>
+        ) : (
+          keys.map((k) => (
+            <div key={k.id} className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm text-text-primary">{k.name}</p>
+                <p className="mt-0.5 font-mono text-xs text-text-muted">
+                  {k.key_prefix}… · created {new Date(k.created_at).toLocaleDateString()}
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" disabled={busyId === k.id} onClick={() => handleRevoke(k.id)}>
+                Revoke
+              </Button>
+            </div>
+          ))
+        )}
+
+        <form onSubmit={handleCreate} className="flex gap-2 pt-1">
+          <Input
+            placeholder="Key name (e.g. My integration)"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+          />
+          <Button type="submit" size="sm" disabled={creating || !newName.trim()}>
+            Create
+          </Button>
+        </form>
       </CardContent>
     </Card>
   );

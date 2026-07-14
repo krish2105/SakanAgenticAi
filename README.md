@@ -698,6 +698,28 @@ payload shape.
   and the POST handler accepts unverified payloads (dev-only fallback,
   same posture as the Stripe webhook without `STRIPE_WEBHOOK_SECRET`).
 
+## Partner API
+
+`backend/app/routers/partner_api.py` opens a rate-limited, read-only comps
+endpoint (`GET /partner/v1/comps`) to callers outside the web app/WhatsApp/
+extension — a proptech tool embedding Sakan AI's comps data, for instance.
+
+- Any signed-in user can mint a key via `POST /partner/api-keys` (JWT-authed,
+  same as any other account action); the raw key is shown exactly once, at
+  creation, and only its SHA-256 hash is ever stored (`app/api_keys.py`,
+  same pattern as `auth_tokens`'s refresh/reset/verify tokens).
+- The comps endpoint itself authenticates via an `X-API-Key` header (not a
+  JWT) and is rate-limited per key (`60/minute`), not per IP — a partner
+  server sharing an egress IP with other traffic doesn't share one bucket.
+- **No billing/quota tie-in yet.** This is gated purely by the rate limit,
+  not by Stripe tier — a deliberate scope decision (wiring partner-API usage
+  into `billing_service`'s quota model is real future work, not something
+  this pass claimed to finish).
+- `GET /partner/api-keys` (list, masked) and `DELETE /partner/api-keys/{id}`
+  (ownership-scoped — one account can never revoke another's key by
+  guessing an id) round out key management; there's no frontend UI for this
+  yet, only the API itself (`backend/tests/test_partner_api.py`, 6 tests).
+
 ## Data partnership
 
 Phase D's "full DLD or portal data partnership... the exclusive or

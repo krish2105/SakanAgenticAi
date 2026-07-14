@@ -347,6 +347,41 @@ export async function revokeAllSessions(token: string): Promise<void> {
   if (!res.ok) throw new Error(await parseAuthError(res));
 }
 
+// --- Partner API keys (Phase 20) ---
+
+export interface ApiKeySummary {
+  id: number;
+  name: string;
+  key_prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+export interface ApiKeyCreated extends ApiKeySummary {
+  api_key: string; // only ever present in the create response, shown once
+}
+
+export async function fetchApiKeys(token: string): Promise<ApiKeySummary[]> {
+  return authedGet<ApiKeySummary[]>("/partner/api-keys", token);
+}
+
+export async function createApiKey(name: string, token: string): Promise<ApiKeyCreated> {
+  const res = await authedFetch(
+    "/partner/api-keys",
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) },
+    token
+  );
+  if (res.status === 401) throw new AuthRequiredError();
+  if (!res.ok) throw new Error(await parseAuthError(res));
+  return res.json();
+}
+
+export async function revokeApiKey(apiKeyId: number, token: string): Promise<void> {
+  const res = await authedFetch(`/partner/api-keys/${apiKeyId}`, { method: "DELETE" }, token);
+  if (res.status === 401) throw new AuthRequiredError();
+  if (!res.ok) throw new Error(await parseAuthError(res));
+}
+
 // --- Deals (all require auth) ---
 
 export async function submitDealQuery(raw_query: string, token: string): Promise<{ query_id: string }> {
