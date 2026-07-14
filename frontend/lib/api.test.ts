@@ -12,6 +12,10 @@ import {
   fetchAdminUsers,
   setAdminUserTier,
   fetchAdminQueryVolume,
+  inviteTeamMember,
+  acceptTeamInvite,
+  fetchTeamMembers,
+  removeTeamMember,
   AuthRequiredError,
 } from "@/lib/api";
 
@@ -205,5 +209,83 @@ describe("admin API functions", () => {
 
     const volume = await fetchAdminQueryVolume("access-1", 30);
     expect(volume).toEqual([{ day: "2026-07-01", count: 3 }]);
+  });
+});
+
+describe("team billing API functions", () => {
+  beforeEach(() => clearTokens());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("inviteTeamMember POSTs the invitee email", async () => {
+    setTokens("access-1");
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toContain("/billing/team/invite");
+      expect(init?.method).toBe("POST");
+      expect(init?.body).toBe(JSON.stringify({ email: "teammate@example.com" }));
+      return jsonResponse(200, { invited_user_id: 9 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await inviteTeamMember("teammate@example.com", "access-1");
+    expect(result.invited_user_id).toBe(9);
+  });
+
+  it("inviteTeamMember surfaces a 404 when the invitee has no account", async () => {
+    setTokens("access-1");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(404, { detail: "No Sakan AI account with that email yet -- ask them to register first" })
+      )
+    );
+
+    await expect(inviteTeamMember("nobody@example.com", "access-1")).rejects.toThrow(/register first/);
+  });
+
+  it("acceptTeamInvite POSTs the raw token", async () => {
+    setTokens("access-1");
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toContain("/billing/team/accept");
+      expect(init?.body).toBe(JSON.stringify({ token: "raw-invite-token" }));
+      return jsonResponse(200, { organization_id: 1, seat_count: 2 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await acceptTeamInvite("raw-invite-token", "access-1");
+    expect(result.seat_count).toBe(2);
+  });
+
+  it("fetchTeamMembers returns the roster when the caller is on a team", async () => {
+    setTokens("access-1");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(200, [{ user_id: 1, email: "owner@example.com", full_name: null, is_owner: true }])
+      )
+    );
+
+    const members = await fetchTeamMembers("access-1");
+    expect(members).toHaveLength(1);
+    expect(members?.[0].is_owner).toBe(true);
+  });
+
+  it("fetchTeamMembers returns null (not throw) for a non-team user", async () => {
+    setTokens("access-1");
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(404, { detail: "You're not on a team." })));
+
+    const members = await fetchTeamMembers("access-1");
+    expect(members).toBeNull();
+  });
+
+  it("removeTeamMember DELETEs the member endpoint", async () => {
+    setTokens("access-1");
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toContain("/billing/team/members/7");
+      expect(init?.method).toBe("DELETE");
+      return jsonResponse(200, { removed_user_id: 7, seat_count: 1 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(removeTeamMember(7, "access-1")).resolves.toBeUndefined();
   });
 });

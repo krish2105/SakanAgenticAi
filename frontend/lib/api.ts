@@ -456,3 +456,51 @@ export async function setAdminUserTier(userId: number, tier: string, token: stri
 export async function fetchAdminQueryVolume(token: string, days = 30): Promise<AdminQueryVolumeDay[]> {
   return authedGet<AdminQueryVolumeDay[]>(`/admin/query-volume?days=${days}`, token);
 }
+
+// --- Team billing (Phase 11c) -------------------------------------------
+
+export interface TeamMember {
+  user_id: number;
+  email: string;
+  full_name: string | null;
+  is_owner: boolean;
+}
+
+async function teamPost<T>(path: string, body: unknown, token: string): Promise<T> {
+  const res = await authedFetch(
+    path,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+    token
+  );
+  if (res.status === 401) throw new AuthRequiredError();
+  if (!res.ok) throw new Error(await parseAuthError(res));
+  return res.json();
+}
+
+export async function inviteTeamMember(email: string, token: string): Promise<{ invited_user_id: number }> {
+  return teamPost("/billing/team/invite", { email }, token);
+}
+
+export async function acceptTeamInvite(
+  inviteToken: string,
+  token: string
+): Promise<{ organization_id: number; seat_count: number }> {
+  return teamPost("/billing/team/accept", { token: inviteToken }, token);
+}
+
+/** Returns null (rather than throwing) when the caller isn't on a team --
+ * that's the common case for every non-Team-tier user viewing /billing. */
+export async function fetchTeamMembers(token: string): Promise<TeamMember[] | null> {
+  try {
+    return await authedGet<TeamMember[]>("/billing/team/members", token);
+  } catch (err) {
+    if (err instanceof AuthRequiredError) throw err;
+    return null;
+  }
+}
+
+export async function removeTeamMember(userId: number, token: string): Promise<void> {
+  const res = await authedFetch(`/billing/team/members/${userId}`, { method: "DELETE" }, token);
+  if (res.status === 401) throw new AuthRequiredError();
+  if (!res.ok) throw new Error(await parseAuthError(res));
+}

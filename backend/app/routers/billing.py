@@ -19,7 +19,8 @@ from pydantic import BaseModel
 from app import config
 from app.auth import get_current_user
 from app.db import get_session_factory
-from app.models import StripeWebhookEvent, User
+from app.models import Organization, StripeWebhookEvent, User
+from app.services import team_service
 from app.services.billing_service import PLANS, quota_status, stripe_price_id_for, tier_for_price_id
 from app.services.email import send_email
 from app.services.pipeline_runner import ensure_tables
@@ -134,14 +135,24 @@ def _apply_subscription_to_user(session, *, customer_id: str, subscription_id: s
 
     user.stripe_subscription_id = subscription_id
     user.subscription_status = status
+    became_team = False
     if status in ("active", "trialing"):
         tier = tier_for_price_id(price_id)
         if tier:
             user.tier = tier
+            became_team = tier == "team"
     elif status in ("canceled", "unpaid", "incomplete_expired"):
         user.tier = "starter"
     session.add(user)
     session.commit()
+
+    # Team/seat billing (Phase 11c): the org is created lazily the first
+    # time a subscription resolves to the team tier, not at checkout time --
+    # this webhook is the only place that reliably knows the tier actually
+    # took effect (checkout.session.completed fires before Stripe has
+    # settled on a price/tier; see its call site below).
+    if became_team:
+        team_service.ensure_organization(session, user)
 
 
 def _handle_payment_failed(session, *, customer_id: str) -> None:
@@ -258,3 +269,97 @@ async def stripe_webhook(request: Request) -> dict:
         log.info("Unhandled Stripe webhook event type: %s", event_type)
 
     return {"received": True}
+
+
+# --- Team/seat billing (Phase 11c) --------------------------------------
+
+class InviteRequest(BaseModel):
+    email: str
+
+
+class AcceptInviteRequest(BaseModel):
+    token: str
+
+
+class TeamMemberOut(BaseModel):
+    user_id: int
+    email: str
+    full_name: str | None
+    is_owner: bool
+
+
+def _require_org_owner(session, current_user: User) -> tuple[User, Organization]:
+    user = session.get(User, current_user.user_id)
+    org = team_service.get_organization_for_owner(session, user.user_id)
+    if org is None:
+        raise HTTPException(
+            status_code=404, detail="You don't own a team. Upgrade to Team to start one."
+        )
+    return user, org
+
+
+@router.post("/team/invite")
+async def invite_team_member(
+    body: InviteRequest, current_user: User = Depends(get_current_user)
+) -> dict:
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        _, org = _require_org_owner(session, current_user)
+        invite, raw_token = team_service.invite_member(session, org, body.email)
+
+        invite_link = f"{config.FRONTEND_URL}/billing/team/accept?token={raw_token}"
+        send_email(
+            body.email.lower(),
+            "You've been invited to a Sakan AI team",
+            f"{current_user.email} invited you to join their Sakan AI team. "
+            f"Accept the invite (expires in {team_service.INVITE_EXPIRE_DAYS} days): {invite_link}",
+        )
+        return {"invited_user_id": invite.invited_user_id, "organization_id": org.organization_id}
+
+
+@router.post("/team/accept")
+async def accept_team_invite(
+    body: AcceptInviteRequest, current_user: User = Depends(get_current_user)
+) -> dict:
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        user = session.get(User, current_user.user_id)
+        org = team_service.accept_invite(session, body.token, user)
+        return {"organization_id": org.organization_id, "seat_count": org.seat_count}
+
+
+@router.get("/team/members")
+async def list_team_members(current_user: User = Depends(get_current_user)) -> list[TeamMemberOut]:
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        user = session.get(User, current_user.user_id)
+        # The owner has an owned Organization row; a plain member doesn't --
+        # look theirs up by organization_id instead.
+        org = team_service.get_organization_for_owner(session, user.user_id)
+        if org is None and user.organization_id is not None:
+            org = session.get(Organization, user.organization_id)
+        if org is None:
+            raise HTTPException(status_code=404, detail="You're not on a team.")
+
+        members = team_service.list_members(session, org)
+        return [
+            TeamMemberOut(
+                user_id=m.user_id,
+                email=m.email,
+                full_name=m.full_name,
+                is_owner=m.user_id == org.owner_user_id,
+            )
+            for m in members
+        ]
+
+
+@router.delete("/team/members/{user_id}")
+async def remove_team_member(user_id: int, current_user: User = Depends(get_current_user)) -> dict:
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        _, org = _require_org_owner(session, current_user)
+        member = session.get(User, user_id)
+        if member is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        team_service.remove_member(session, org, member)
+        return {"removed_user_id": user_id, "seat_count": org.seat_count}

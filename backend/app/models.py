@@ -107,6 +107,11 @@ class User(Base):
     failed_login_attempts = Column(Integer, nullable=False, server_default=text("0"))
     locked_until = Column(DateTime, nullable=True)
 
+    # Team/seat billing (Phase 11c). NULL for every non-Team user; set for a
+    # Team org's owner and its accepted members alike (the owner is a member
+    # of their own org, not tracked separately).
+    organization_id = Column(Integer, ForeignKey("organizations.organization_id"), nullable=True)
+
     deal_queries = relationship("DealQuery", back_populates="owner")
 
 
@@ -157,6 +162,43 @@ class AuditLog(Base):
     event_type = Column(String(50))
     event_payload = Column(JSONType)
     timestamp = Column(DateTime, server_default=func.now())
+
+
+class Organization(Base):
+    """A Team-tier billing unit (Phase 11c). One owner (the user who
+    checked out for Team), zero or more accepted members. Deliberately
+    minimal: no org name/branding beyond a label, no nested roles -- the
+    owner manages membership and billing, members just get the shared
+    unmetered quota. seat_count mirrors the Stripe subscription's item
+    quantity so /billing/team/members' seat usage and the actual invoice
+    never silently diverge (kept in sync by team_service.sync_stripe_seats)."""
+
+    __tablename__ = "organizations"
+
+    organization_id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255), nullable=False)
+    owner_user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    stripe_subscription_id = Column(String(255), nullable=True)
+    seat_count = Column(Integer, nullable=False, server_default=text("1"))
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class TeamInvite(Base):
+    """Single-use invite tokens for joining an Organization (Phase 11c).
+    Separate from AuthToken (refresh/reset/verify) because those are always
+    scoped to "the user this token was issued to acts on their own account";
+    an invite instead needs to carry *which org* it grants membership to,
+    which AuthToken's schema has no field for."""
+
+    __tablename__ = "team_invites"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.organization_id"), nullable=False)
+    invited_user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    accepted = Column(Boolean, nullable=False, server_default=text("false"))
+    created_at = Column(DateTime, server_default=func.now())
 
 
 class StripeWebhookEvent(Base):

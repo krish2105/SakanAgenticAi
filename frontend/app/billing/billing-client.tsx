@@ -1,19 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Check } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Check, UserMinus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { capture } from "@/lib/analytics";
 import { useAuth } from "@/components/auth-provider";
 import { useLocale } from "@/components/locale-provider";
+import { useToast } from "@/components/ui/toast";
 import {
   fetchBillingStatus,
   openBillingPortal,
   startCheckout,
+  fetchTeamMembers,
+  inviteTeamMember,
+  removeTeamMember,
   type BillingPlans,
   type BillingStatus,
+  type TeamMember,
 } from "@/lib/api";
 
 const TIER_ORDER = ["starter", "pro", "team", "enterprise"] as const;
@@ -33,15 +39,22 @@ function formatPrice(aed: number | null): string {
 
 export function BillingClient({ plans }: { plans: BillingPlans }) {
   const { t } = useLocale();
-  const { token, loading: authLoading } = useAuth();
+  const { user, token, loading: authLoading } = useAuth();
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [pendingTier, setPendingTier] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [members, setMembers] = useState<TeamMember[] | null>(null);
+
+  const loadMembers = useCallback(() => {
+    if (!token) return;
+    fetchTeamMembers(token).then(setMembers).catch(() => setMembers(null));
+  }, [token]);
 
   useEffect(() => {
     if (!token) return;
     fetchBillingStatus(token).then(setStatus).catch(() => setStatus(null));
-  }, [token]);
+    loadMembers();
+  }, [token, loadMembers]);
 
   async function handleUpgrade(tier: "pro" | "team") {
     if (!token) return;
@@ -160,6 +173,103 @@ export function BillingClient({ plans }: { plans: BillingPlans }) {
           );
         })}
       </div>
+
+      {token && members && (
+        <TeamPanel members={members} isOwner={members.some((m) => m.is_owner && m.email === user?.email)} onChange={loadMembers} />
+      )}
     </div>
+  );
+}
+
+/** Only rendered once fetchTeamMembers has confirmed the caller belongs to
+ * an org (Phase 11c) -- absent for every non-Team user, which is most of
+ * them, so this stays out of the way rather than showing an empty state. */
+function TeamPanel({
+  members,
+  isOwner,
+  onChange,
+}: {
+  members: TeamMember[];
+  isOwner: boolean;
+  onChange: () => void;
+}) {
+  const { token } = useAuth();
+  const { toast } = useToast();
+  const [email, setEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [removingId, setRemovingId] = useState<number | null>(null);
+
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!token || !email.trim() || inviting) return;
+    setInviting(true);
+    try {
+      await inviteTeamMember(email.trim(), token);
+      toast(`Invite sent to ${email.trim()}`, "success");
+      setEmail("");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to send invite", "error");
+    } finally {
+      setInviting(false);
+    }
+  }
+
+  async function handleRemove(userId: number) {
+    if (!token) return;
+    setRemovingId(userId);
+    try {
+      await removeTeamMember(userId, token);
+      onChange();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to remove member", "error");
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle>Team members</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <ul className="flex flex-col gap-2">
+          {members.map((m) => (
+            <li key={m.user_id} className="flex items-center justify-between gap-3 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-text-primary">{m.full_name || m.email}</span>
+                {m.is_owner && <Badge variant="muted">Owner</Badge>}
+              </div>
+              {isOwner && !m.is_owner && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={removingId === m.user_id}
+                  onClick={() => handleRemove(m.user_id)}
+                  aria-label={`Remove ${m.email}`}
+                >
+                  <UserMinus size={14} />
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+
+        {isOwner && (
+          <form onSubmit={handleInvite} className="flex gap-2">
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="teammate@company.com"
+              className="h-9"
+            />
+            <Button type="submit" size="sm" variant="outline" disabled={inviting}>
+              {inviting ? "Sending…" : "Invite"}
+            </Button>
+          </form>
+        )}
+      </CardContent>
+    </Card>
   );
 }
