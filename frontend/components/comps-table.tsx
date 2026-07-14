@@ -1,6 +1,12 @@
+"use client";
+
+import { Download } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { T } from "@/components/t";
+import { capture } from "@/lib/analytics";
+import { downloadCompsCsv } from "@/lib/csv-export";
 import type { Comp } from "@/lib/types";
 
 /** Phase 7: every comp always shows whether it's demo/synthetic data, the
@@ -42,10 +48,24 @@ export function ProvenanceBadge({ provenance }: { provenance?: string }) {
 export function CompsTable({ comps }: { comps: Comp[] }) {
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
         <CardTitle>
           <T k="comps.comparableTransactions" />
         </CardTitle>
+        {comps.length > 0 && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              capture("comps_csv_exported", { count: comps.length });
+              downloadCompsCsv(comps);
+            }}
+          >
+            <Download size={14} />
+            Export CSV
+          </Button>
+        )}
       </CardHeader>
       <CardContent>
         {comps.length === 0 ? (

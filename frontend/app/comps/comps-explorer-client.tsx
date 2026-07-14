@@ -2,11 +2,15 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import { Download } from "lucide-react";
 import { CompsFilterBar, type CompsFilters } from "@/components/comps-filter-bar";
 import { ProvenanceBadge } from "@/components/comps-table";
+import { Button } from "@/components/ui/button";
 import { T } from "@/components/t";
 import { useLocale } from "@/components/locale-provider";
 import { fetchComps } from "@/lib/api";
+import { capture } from "@/lib/analytics";
+import { downloadCompsCsv } from "@/lib/csv-export";
 import { cn } from "@/lib/utils";
 import type { Comp } from "@/lib/types";
 
@@ -59,7 +63,22 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
             {loading ? "Loading…" : `${comps.length} transactions`}
           </p>
         </div>
-        <CompsFilterBar filters={filters} onChange={setFilters} />
+        <div className="flex flex-wrap items-end gap-3">
+          <CompsFilterBar filters={filters} onChange={setFilters} />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={comps.length === 0}
+            onClick={() => {
+              capture("comps_csv_exported", { count: comps.length });
+              downloadCompsCsv(comps);
+            }}
+          >
+            <Download size={14} />
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       <div className="grid min-h-0 grid-cols-1 gap-4 lg:h-[calc(100vh-13rem)] lg:grid-cols-2">
