@@ -145,7 +145,7 @@ export function CompsExplorerClient({ initialComps }: { initialComps: Comp[] }) 
 
   return (
     <div className="flex h-full flex-col gap-4 px-6 py-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
         <div>
           <h1 className="font-display text-2xl font-semibold text-text-primary">{t("comps.title")}</h1>
           <p className="text-sm text-text-muted">

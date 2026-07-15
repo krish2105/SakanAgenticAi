@@ -25,22 +25,22 @@ export default function GlobalError({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#0B1220",
-          color: "#EDEFF3",
+          background: "#0A1615",
+          color: "#F1EDE5",
           fontFamily: "system-ui, sans-serif",
           padding: "1.5rem",
         }}
       >
         <div style={{ maxWidth: 420, textAlign: "center" }}>
           <h1 style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>Sakan AI hit a fatal error</h1>
-          <p style={{ color: "#8A94AC", marginBottom: "1.5rem" }}>
+          <p style={{ color: "#93A6A3", marginBottom: "1.5rem" }}>
             Something went wrong while loading the app. Please try again.
           </p>
           <button
             onClick={() => reset()}
             style={{
-              background: "#C9A227",
-              color: "#0B1220",
+              background: "#E38B4A",
+              color: "#0A1615",
               border: "none",
               borderRadius: 8,
               padding: "0.6rem 1.25rem",

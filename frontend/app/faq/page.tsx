@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://sakan-agentic-ai.vercel.app";
 
@@ -63,20 +64,24 @@ export default function FaqPage() {
     <div className="mx-auto max-w-3xl px-6 py-12">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <p className="font-mono text-xs uppercase tracking-widest text-brass">FAQ</p>
-      <h1 className="mt-1 font-display text-3xl font-semibold text-text-primary">Investor FAQ</h1>
-      <p className="mt-2 max-w-2xl text-sm text-text-muted">
-        What Sakan AI&apos;s data, valuations, and compliance checks actually are — and aren&apos;t.
-      </p>
+      <Reveal>
+        <p className="font-mono text-xs uppercase tracking-widest text-brass">FAQ</p>
+        <h1 className="mt-1 font-display text-3xl font-semibold text-text-primary">Investor FAQ</h1>
+        <p className="mt-2 max-w-2xl text-sm text-text-muted">
+          What Sakan AI&apos;s data, valuations, and compliance checks actually are — and aren&apos;t.
+        </p>
+      </Reveal>
 
-      <div className="mt-8 flex flex-col gap-6">
+      <RevealGroup className="mt-8 flex flex-col gap-6">
         {FAQS.map((f) => (
-          <div key={f.question} className="border-b border-border pb-6 last:border-0">
-            <h2 className="font-display text-base font-semibold text-text-primary">{f.question}</h2>
-            <p className="mt-2 text-sm leading-relaxed text-text-muted">{f.answer}</p>
-          </div>
+          <RevealItem key={f.question}>
+            <div className="border-b border-border pb-6 last:border-0">
+              <h2 className="font-display text-base font-semibold text-text-primary">{f.question}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-text-muted">{f.answer}</p>
+            </div>
+          </RevealItem>
         ))}
-      </div>
+      </RevealGroup>
 
       <p className="mt-8 text-xs text-text-muted">
         More questions?{" "}

@@ -3,36 +3,33 @@
 @tailwind utilities;
 
 :root {
-  --bg: 243 245 248;
+  /* "Petrol & Copper" -- deep teal-black ground, burnt-copper accent.
+     Every pair below is computed (sRGB relative luminance, not eyeballed)
+     against both bg and surface and holds >=4.5:1 for text use; see
+     lib/chart-colors.ts for the SVG/Recharts twin of this palette. */
+  --bg: 244 247 246;
   --surface: 255 255 255;
-  --surface-raised: 255 255 255;
-  --border: 216 222 232;
-  --text-primary: 16 24 40;
-  --text-muted: 91 100 120;
-  /* Darkened from the original 166 130 30 -- that value was 3.6:1 against
-     white/near-white surfaces (text-brass appears as body-size text in many
-     places: eyebrows, prices, links), failing WCAG AA's 4.5:1 for normal
-     text. This scaled-down value (same hue ratio) measures 4.8-5.3:1
-     against this theme's surfaces, verified with axe-core (Phase 21), not
-     just computed by hand. Dark theme's brass below was already fine
-     (~7:1) and is unchanged. */
-  --accent-brass: 133 104 24;
-  --accent-brass-dim: 112 86 16;
-  --positive: 31 122 77;
-  --negative: 168 67 43;
+  --surface-raised: 251 253 252;
+  --border: 215 225 223;
+  --text-primary: 14 29 27;
+  --text-muted: 82 112 108;
+  --accent-brass: 156 78 32;
+  --accent-brass-dim: 124 62 25;
+  --positive: 22 107 70;
+  --negative: 194 59 82;
 }
 
 .dark {
-  --bg: 11 18 32;
-  --surface: 18 27 46;
-  --surface-raised: 24 35 56;
-  --border: 37 50 74;
-  --text-primary: 237 239 243;
-  --text-muted: 138 148 172;
-  --accent-brass: 201 162 39;
-  --accent-brass-dim: 140 116 32;
-  --positive: 47 158 104;
-  --negative: 196 87 59;
+  --bg: 10 22 21;
+  --surface: 15 31 30;
+  --surface-raised: 21 43 41;
+  --border: 37 63 60;
+  --text-primary: 241 237 229;
+  --text-muted: 147 166 163;
+  --accent-brass: 227 139 74;
+  --accent-brass-dim: 185 107 49;
+  --positive: 63 165 121;
+  --negative: 224 82 110;
 }
 
 * {
@@ -49,6 +46,49 @@ body {
 
 .font-mono-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.perspective-1200 {
+  perspective: 1200px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+@keyframes aurora-drift-a {
+  0%, 100% { transform: translate3d(-6%, -4%, 0) scale(1); }
+  50% { transform: translate3d(8%, 6%, 0) scale(1.15); }
+}
+
+@keyframes aurora-drift-b {
+  0%, 100% { transform: translate3d(5%, 8%, 0) scale(1.1); }
+  50% { transform: translate3d(-9%, -5%, 0) scale(0.95); }
+}
+
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-aurora-a {
+  animation: aurora-drift-a 22s ease-in-out infinite;
+}
+
+.animate-aurora-b {
+  animation: aurora-drift-b 26s ease-in-out infinite;
+}
+
+.animate-float-y {
+  animation: float-y 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-aurora-a,
+  .animate-aurora-b,
+  .animate-float-y {
+    animation: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

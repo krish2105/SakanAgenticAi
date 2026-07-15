@@ -1,4 +1,7 @@
 import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
+import { TiltCard } from "@/components/motion/tilt-card";
+import { RevealGroup, RevealItem } from "@/components/motion/reveal";
+import { AnimatedCounter } from "@/components/motion/animated-counter";
 
 export function MarketSnapshotCards({
   snapshot,
@@ -6,20 +9,24 @@ export function MarketSnapshotCards({
   snapshot: { community: string; avg_price_per_sqft: number }[];
 }) {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <RevealGroup className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {snapshot.slice(0, 4).map((s) => (
-        <Card key={s.community}>
-          <CardHeader className="gap-0.5 pb-2">
-            <CardDescription className="truncate">{s.community}</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="font-mono text-lg font-medium text-text-primary">
-              AED {Math.round(s.avg_price_per_sqft).toLocaleString()}
-            </div>
-            <div className="font-mono text-[11px] text-text-muted">avg / sqft</div>
-          </CardContent>
-        </Card>
+        <RevealItem key={s.community}>
+          <TiltCard>
+            <Card className="hover:-translate-y-1">
+              <CardHeader className="gap-0.5 pb-2">
+                <CardDescription className="truncate">{s.community}</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="font-mono text-lg font-medium text-text-primary">
+                  <AnimatedCounter value={Math.round(s.avg_price_per_sqft)} prefix="AED " />
+                </div>
+                <div className="font-mono text-[11px] text-text-muted">avg / sqft</div>
+              </CardContent>
+            </Card>
+          </TiltCard>
+        </RevealItem>
       ))}
-    </div>
+    </RevealGroup>
   );
 }

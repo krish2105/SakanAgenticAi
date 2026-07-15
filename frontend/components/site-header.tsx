@@ -9,10 +9,14 @@ import type { Tick } from "@/lib/types";
 
 export function SiteHeader({ ticks }: { ticks: Tick[] }) {
   return (
-    <div className="sticky top-0 z-30 bg-bg/85 backdrop-blur-md supports-[backdrop-filter]:bg-bg/70">
-      <header className="flex items-center justify-between border-b border-border/70 px-4 py-3">
-        <Link href="/" className="flex items-baseline gap-2">
-          <span className="font-display text-xl font-semibold tracking-tight text-text-primary">
+    <div className="sticky top-0 z-30 border-b border-border/70 bg-bg/85 backdrop-blur-md supports-[backdrop-filter]:bg-bg/70">
+      <header className="flex items-center justify-between px-4 py-3">
+        <Link href="/" className="group flex items-baseline gap-2">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brass opacity-60" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-brass" />
+          </span>
+          <span className="font-display text-xl font-semibold tracking-tight text-text-primary transition-colors duration-200 group-hover:text-brass">
             <T k="app.title" />
           </span>
           <span className="hidden font-mono text-[10px] uppercase tracking-widest text-text-muted sm:inline">

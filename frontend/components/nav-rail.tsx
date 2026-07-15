@@ -33,7 +33,7 @@ export function NavRail() {
               "flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brass",
               active
-                ? "bg-brass/15 text-brass shadow-[inset_0_0_0_1px_rgba(166,130,30,0.25)]"
+                ? "bg-brass/15 text-brass shadow-[inset_0_0_0_1px_rgb(var(--accent-brass)/0.25)]"
                 : "text-text-muted hover:-translate-y-0.5 hover:bg-border/40 hover:text-text-primary"
             )}
           >

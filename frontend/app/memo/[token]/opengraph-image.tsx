@@ -4,10 +4,10 @@ import { fetchSharedMemo } from "@/lib/api";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const BRASS = "#C9A227";
-const BG = "#0B1220";
-const TEXT_PRIMARY = "#EDEFF3";
-const TEXT_MUTED = "#8A94AC";
+const BRASS = "#E38B4A";
+const BG = "#0A1615";
+const TEXT_PRIMARY = "#F1EDE5";
+const TEXT_MUTED = "#93A6A3";
 
 /** Auto-wired by Next's file-convention metadata system (next/og's
  * ImageResponse, built into Next.js -- no @vercel/og install needed) --

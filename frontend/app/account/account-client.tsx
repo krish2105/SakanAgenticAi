@@ -34,8 +34,10 @@ export function AccountClient() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">
-      <p className="font-mono text-xs uppercase tracking-wider text-text-muted">Account</p>
-      <h1 className="mt-1 font-display text-2xl font-semibold text-text-primary">Your account</h1>
+      <div className="animate-in fade-in slide-in-from-top-2 duration-500">
+        <p className="font-mono text-xs uppercase tracking-wider text-text-muted">Account</p>
+        <h1 className="mt-1 font-display text-2xl font-semibold text-text-primary">Your account</h1>
+      </div>
 
       <Card className="mt-6">
         <CardHeader>

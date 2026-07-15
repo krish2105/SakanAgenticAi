@@ -12,6 +12,7 @@ import { SavedSearchesPanel } from "@/components/saved-searches-panel";
 import { useAuth } from "@/components/auth-provider";
 import { fetchSavedComps, unsaveComp, AuthRequiredError } from "@/lib/api";
 import type { Comp } from "@/lib/types";
+import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 
 export function SavedCompsClient() {
   const router = useRouter();
@@ -82,21 +83,23 @@ export function SavedCompsClient() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <p className="font-mono text-xs uppercase tracking-wider text-text-muted">Watchlist</p>
-          <h1 className="mt-1 font-display text-2xl font-semibold text-text-primary">Saved comps</h1>
+      <Reveal>
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="font-mono text-xs uppercase tracking-wider text-text-muted">Watchlist</p>
+            <h1 className="mt-1 font-display text-2xl font-semibold text-text-primary">Saved comps</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => void load()} disabled={isLoading}>
+              <RefreshCw size={14} />
+              Refresh
+            </Button>
+            <Link href="/comps">
+              <Button size="sm">Browse comps</Button>
+            </Link>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => void load()} disabled={isLoading}>
-            <RefreshCw size={14} />
-            Refresh
-          </Button>
-          <Link href="/comps">
-            <Button size="sm">Browse comps</Button>
-          </Link>
-        </div>
-      </div>
+      </Reveal>
 
       {!isLoading && <div className="mt-6"><SavedSearchesPanel /></div>}
 
@@ -138,35 +141,35 @@ export function SavedCompsClient() {
           </div>
         )}
 
-        {!isLoading &&
-          comps &&
-          comps.length > 0 &&
-          comps.map((c) => (
-            <div
-              key={c.transaction_id}
-              className="rounded-xl border border-border bg-surface p-4 transition-colors hover:border-brass/50"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-text-primary">{c.building}</p>
-                  <p className="mt-1 font-mono text-xs text-text-muted">
-                    {c.community} · {c.bedrooms} bed · AED {c.price?.toLocaleString()}
-                  </p>
+        {!isLoading && comps && comps.length > 0 && (
+          <RevealGroup className="flex flex-col gap-3">
+            {comps.map((c) => (
+              <RevealItem key={c.transaction_id}>
+                <div className="rounded-xl border border-border bg-surface p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-brass/50 hover:shadow-md hover:shadow-brass/5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-text-primary">{c.building}</p>
+                      <p className="mt-1 font-mono text-xs text-text-muted">
+                        {c.community} · {c.bedrooms} bed · AED {c.price?.toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <ProvenanceBadge provenance={c.data_provenance} />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={removingId === c.transaction_id}
+                        onClick={() => handleRemove(c.transaction_id)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <ProvenanceBadge provenance={c.data_provenance} />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={removingId === c.transaction_id}
-                    onClick={() => handleRemove(c.transaction_id)}
-                  >
-                    Remove
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ))}
+              </RevealItem>
+            ))}
+          </RevealGroup>
+        )}
       </div>
     </div>
   );

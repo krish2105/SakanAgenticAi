@@ -15,25 +15,30 @@ import { useEffect, useState } from "react";
 // separation, contrast vs surface) for both modes before use -- do not edit
 // these without re-running that validator.
 const DARK = {
-  brass: "#C9A227",
-  textPrimary: "#EDEFF3",
-  textMuted: "#8A94AC",
-  border: "#25324A",
-  positive: "#2F9E68",
-  negative: "#C4573B",
-  surface: "#121B2E",
-  categorical: ["#AD8A1E", "#4A87BF", "#C0568F", "#739E2C"],
+  brass: "#E38B4A",
+  textPrimary: "#F1EDE5",
+  textMuted: "#93A6A3",
+  border: "#253F3C",
+  positive: "#3FA579",
+  negative: "#E0526E",
+  surface: "#0F1F1E",
+  categorical: ["#C97A3A", "#4A9BD6", "#D65A99", "#5F9A2E"],
+  // Legible text color for a filled chip/pill using a `categorical` color as
+  // its background (e.g. a selected community filter). Computed per-theme,
+  // not fixed white/black -- see the light-mode comment below.
+  onCategorical: "#0A1615",
 };
 
 const LIGHT = {
-  brass: "#A6821E",
-  textPrimary: "#101828",
-  textMuted: "#5B6478",
-  border: "#D8DEE8",
-  positive: "#1F7A4D",
-  negative: "#A8432B",
+  brass: "#9C4E20",
+  textPrimary: "#0E1D1B",
+  textMuted: "#52706C",
+  border: "#D7E1DF",
+  positive: "#166B46",
+  negative: "#C23B52",
   surface: "#FFFFFF",
-  categorical: ["#A6821E", "#2E6BA8", "#C23B7A", "#5B8C1F"],
+  categorical: ["#9C4E20", "#1E6FA8", "#B23A72", "#4F7A1B"],
+  onCategorical: "#FFFFFF",
 };
 
 export function useChartColors() {

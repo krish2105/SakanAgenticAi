@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "Agentic real-estate deal intelligence for Dubai: cited comps, defensible valuations, RERA compliance checks, and investor-ready memos.",
     start_url: "/",
     display: "standalone",
-    background_color: "#0B1220",
-    theme_color: "#0B1220",
+    background_color: "#0A1615",
+    theme_color: "#0A1615",
     icons: [
       {
         src: "/favicon.ico",

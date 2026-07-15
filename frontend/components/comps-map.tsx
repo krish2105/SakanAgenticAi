@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { geoForComp, DUBAI_CENTER } from "@/lib/community-geo";
+import { useChartColors } from "@/lib/chart-colors";
 import type { Comp } from "@/lib/types";
 
 export function CompsMap({
@@ -15,6 +16,7 @@ export function CompsMap({
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
+  const colors = useChartColors();
   const points = useMemo(
     () => comps.map((c) => ({ comp: c, position: geoForComp(c.community, c.transaction_id) })),
     [comps]
@@ -40,8 +42,8 @@ export function CompsMap({
             center={position}
             radius={active ? 9 : 6}
             pathOptions={{
-              color: active ? "#C9A227" : "#8A94AC",
-              fillColor: active ? "#C9A227" : "#25324A",
+              color: active ? colors.brass : colors.textMuted,
+              fillColor: active ? colors.brass : colors.border,
               fillOpacity: 0.85,
               weight: active ? 2 : 1,
             }}

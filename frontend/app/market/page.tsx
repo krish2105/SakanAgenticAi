@@ -5,6 +5,7 @@ import { DeveloperLeaderboardChart } from "@/components/charts/developer-leaderb
 import { OffPlanFunnelChart } from "@/components/charts/off-plan-funnel-chart";
 import { T } from "@/components/t";
 import { fetchMarketTrends, fetchDeveloperLeaderboard, fetchOffPlanFunnel } from "@/lib/api";
+import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 
 export const metadata: Metadata = {
   title: "Analytics",
@@ -20,41 +21,49 @@ export default async function MarketAnalyticsPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
-      <h1 className="font-display text-2xl font-semibold text-text-primary">
-        <T k="market.title" />
-      </h1>
-      <p className="mt-1 text-sm text-text-muted">
-        <T k="market.subtitle" />
-      </p>
+      <Reveal>
+        <h1 className="font-display text-2xl font-semibold text-text-primary">
+          <T k="market.title" />
+        </h1>
+        <p className="mt-1 text-sm text-text-muted">
+          <T k="market.subtitle" />
+        </p>
+      </Reveal>
 
-      <div className="mt-6 flex flex-col gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Price trend by community</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PriceTrendChart trends={trends} />
-          </CardContent>
-        </Card>
+      <RevealGroup className="mt-6 flex flex-col gap-4">
+        <RevealItem>
+          <Card className="hover:-translate-y-0">
+            <CardHeader>
+              <CardTitle>Price trend by community</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PriceTrendChart trends={trends} />
+            </CardContent>
+          </Card>
+        </RevealItem>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Developer track-record leaderboard</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DeveloperLeaderboardChart developers={developers} />
-          </CardContent>
-        </Card>
+        <RevealItem>
+          <Card className="hover:-translate-y-0">
+            <CardHeader>
+              <CardTitle>Developer track-record leaderboard</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DeveloperLeaderboardChart developers={developers} />
+            </CardContent>
+          </Card>
+        </RevealItem>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Off-plan percent-sold funnel</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <OffPlanFunnelChart projects={offPlan} />
-          </CardContent>
-        </Card>
-      </div>
+        <RevealItem>
+          <Card className="hover:-translate-y-0">
+            <CardHeader>
+              <CardTitle>Off-plan percent-sold funnel</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <OffPlanFunnelChart projects={offPlan} />
+            </CardContent>
+          </Card>
+        </RevealItem>
+      </RevealGroup>
     </div>
   );
 }

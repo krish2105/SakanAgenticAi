@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/auth-provider";
 import { fetchDeals, AuthRequiredError } from "@/lib/api";
 import type { DealStatus, DealSummary } from "@/lib/types";
+import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal";
 
 const STATUS_META: Record<DealStatus, { label: string; variant: "positive" | "muted" | "negative" }> = {
   done: { label: "Complete", variant: "positive" },
@@ -84,21 +85,23 @@ export function DealsHistoryClient() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <p className="font-mono text-xs uppercase tracking-wider text-text-muted">History</p>
-          <h1 className="mt-1 font-display text-2xl font-semibold text-text-primary">My deals</h1>
+      <Reveal>
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="font-mono text-xs uppercase tracking-wider text-text-muted">History</p>
+            <h1 className="mt-1 font-display text-2xl font-semibold text-text-primary">My deals</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => void load()} disabled={isLoading}>
+              <RefreshCw size={14} />
+              Refresh
+            </Button>
+            <Link href="/">
+              <Button size="sm">New query</Button>
+            </Link>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => void load()} disabled={isLoading}>
-            <RefreshCw size={14} />
-            Refresh
-          </Button>
-          <Link href="/">
-            <Button size="sm">New query</Button>
-          </Link>
-        </div>
-      </div>
+      </Reveal>
 
       <div className="mt-6 flex flex-col gap-3">
         {isLoading &&
@@ -135,34 +138,37 @@ export function DealsHistoryClient() {
           </div>
         )}
 
-        {!isLoading &&
-          !error &&
-          deals?.map((deal) => {
-            const meta = STATUS_META[deal.status] ?? STATUS_META.pending;
-            return (
-              <Link
-                key={deal.query_id}
-                href={`/deals/${deal.query_id}`}
-                className="group rounded-xl border border-border bg-surface p-4 transition-colors hover:border-brass/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brass"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-text-primary group-hover:text-brass">
-                      {deal.raw_query}
-                    </p>
-                    <p className="mt-1 font-mono text-xs text-text-muted">
-                      Deal #{deal.query_id}
-                      {deal.created_at ? ` · ${formatDate(deal.created_at)}` : ""}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Badge variant={meta.variant}>{meta.label}</Badge>
-                    <FileText size={16} className="text-text-muted" aria-hidden="true" />
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+        {!isLoading && !error && deals && deals.length > 0 && (
+          <RevealGroup className="contents">
+            {deals.map((deal) => {
+              const meta = STATUS_META[deal.status] ?? STATUS_META.pending;
+              return (
+                <RevealItem key={deal.query_id}>
+                  <Link
+                    href={`/deals/${deal.query_id}`}
+                    className="group block rounded-xl border border-border bg-surface p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-brass/50 hover:shadow-md hover:shadow-brass/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brass"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-text-primary group-hover:text-brass">
+                          {deal.raw_query}
+                        </p>
+                        <p className="mt-1 font-mono text-xs text-text-muted">
+                          Deal #{deal.query_id}
+                          {deal.created_at ? ` · ${formatDate(deal.created_at)}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Badge variant={meta.variant}>{meta.label}</Badge>
+                        <FileText size={16} className="text-text-muted" aria-hidden="true" />
+                      </div>
+                    </div>
+                  </Link>
+                </RevealItem>
+              );
+            })}
+          </RevealGroup>
+        )}
       </div>
     </div>
   );

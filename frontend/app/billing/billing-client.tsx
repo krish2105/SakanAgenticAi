@@ -89,8 +89,10 @@ export function BillingClient({ plans }: { plans: BillingPlans }) {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
-      <h1 className="font-display text-2xl font-semibold text-text-primary">{t("billing.title")}</h1>
-      <p className="mt-1 text-sm text-text-muted">{t("billing.subtitle")}</p>
+      <div className="animate-in fade-in slide-in-from-top-2 duration-500">
+        <h1 className="font-display text-2xl font-semibold text-text-primary">{t("billing.title")}</h1>
+        <p className="mt-1 text-sm text-text-muted">{t("billing.subtitle")}</p>
+      </div>
 
       {!authLoading && !token && (
         <p className="mt-4 text-sm text-text-muted">

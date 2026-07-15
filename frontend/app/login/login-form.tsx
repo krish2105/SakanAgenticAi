@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
 import { useLocale } from "@/components/locale-provider";
 import { TurnstileWidget } from "@/components/turnstile-widget";
+import { AuroraBackground } from "@/components/motion/aurora-background";
+import { Reveal } from "@/components/motion/reveal";
 
 export function LoginForm() {
   const { login, register, continueAsDemo } = useAuth();
@@ -58,13 +60,16 @@ export function LoginForm() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[70vh] max-w-sm flex-col justify-center px-6 py-12">
-      <p className="font-mono text-xs uppercase tracking-widest text-brass">{t("app.title")}</p>
-      <h1 className="mt-2 font-display text-2xl font-semibold text-text-primary">
-        {mode === "login" ? t("auth.signIn") : t("auth.createYourAccount")}
-      </h1>
+    <div className="relative mx-auto flex min-h-[70vh] max-w-sm flex-col justify-center px-6 py-12">
+      <AuroraBackground className="-inset-x-16 -top-16 h-[380px]" />
+      <Reveal>
+        <p className="font-mono text-xs uppercase tracking-widest text-brass">{t("app.title")}</p>
+        <h1 className="mt-2 font-display text-2xl font-semibold text-text-primary">
+          {mode === "login" ? t("auth.signIn") : t("auth.createYourAccount")}
+        </h1>
+      </Reveal>
 
-      <Card className="mt-6">
+      <Card className="mt-6 hover:-translate-y-0">
         <CardHeader>
           <CardTitle className="text-base">
             {mode === "login" ? t("auth.welcomeBack") : t("auth.getStarted")}

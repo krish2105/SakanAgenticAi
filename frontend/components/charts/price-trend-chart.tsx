@@ -59,9 +59,9 @@ export function PriceTrendChart({ trends }: { trends: MarketTrendPoint[] }) {
                 aria-pressed={isSelected}
                 className={cn(
                   "rounded-full border px-2.5 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-                  isSelected ? "border-transparent text-white" : "border-border bg-surface text-text-muted hover:text-text-primary"
+                  isSelected ? "border-transparent" : "border-border bg-surface text-text-muted hover:text-text-primary"
                 )}
-                style={isSelected ? { backgroundColor: colorFor(c) } : undefined}
+                style={isSelected ? { backgroundColor: colorFor(c), color: colors.onCategorical } : undefined}
               >
                 {c}
               </button>

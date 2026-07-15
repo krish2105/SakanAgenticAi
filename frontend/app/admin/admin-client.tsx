@@ -126,10 +126,12 @@ export function AdminClient() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
-      <p className="font-mono text-xs uppercase tracking-wider text-text-muted">Admin</p>
-      <h1 className="mt-1 font-display text-2xl font-semibold text-text-primary">Dashboard</h1>
+      <div className="animate-in fade-in slide-in-from-top-2 duration-500">
+        <p className="font-mono text-xs uppercase tracking-wider text-text-muted">Admin</p>
+        <h1 className="mt-1 font-display text-2xl font-semibold text-text-primary">Dashboard</h1>
+      </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4 animate-in fade-in duration-700">
         <StatCard label="Total users" value={stats?.total_users} />
         <StatCard label="Verified users" value={stats?.verified_users} />
         <StatCard label="Total deals" value={stats?.total_deals} />

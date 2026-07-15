@@ -15,6 +15,7 @@ import { useLocale } from "@/components/locale-provider";
 import { useToast } from "@/components/ui/toast";
 import { dealStreamUrl, fetchDeal, retryDealQuery, AuthRequiredError } from "@/lib/api";
 import type { DealState } from "@/lib/types";
+import { Reveal } from "@/components/motion/reveal";
 
 /** Has the pipeline reached a terminal state for this deal? Used to decide
  * whether there's anything left to stream. comps_search short-circuits after
@@ -196,7 +197,7 @@ export function DealResultClient({ queryId }: { queryId: string }) {
     <div className="flex flex-1">
       <div className="min-w-0 flex-1 px-6 py-8 pb-24 lg:pb-8">
         <div className="mx-auto max-w-3xl">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
             <div>
               <p className="font-mono text-xs text-text-muted">Deal #{queryId}</p>
               <h1 className="mt-1 font-display text-2xl font-semibold text-text-primary">
@@ -231,21 +232,27 @@ export function DealResultClient({ queryId }: { queryId: string }) {
           )}
 
           <div className="mt-6 flex flex-col gap-4">
-            <CompsTable comps={deal.retrieved_comps} />
+            <Reveal>
+              <CompsTable comps={deal.retrieved_comps} />
+            </Reveal>
             {deal.query_type !== "comps_search" && (
               <>
-                <ValuationCard
-                  low={deal.valuation_low}
-                  high={deal.valuation_high}
-                  method={deal.valuation_method}
-                  rationale={deal.valuation_rationale}
-                  comps={deal.retrieved_comps}
-                />
-                <ComplianceCard
-                  summary={deal.compliance_summary}
-                  flags={deal.compliance_flags}
-                  clauses={deal.retrieved_clauses}
-                />
+                <Reveal delay={0.08}>
+                  <ValuationCard
+                    low={deal.valuation_low}
+                    high={deal.valuation_high}
+                    method={deal.valuation_method}
+                    rationale={deal.valuation_rationale}
+                    comps={deal.retrieved_comps}
+                  />
+                </Reveal>
+                <Reveal delay={0.16}>
+                  <ComplianceCard
+                    summary={deal.compliance_summary}
+                    flags={deal.compliance_flags}
+                    clauses={deal.retrieved_clauses}
+                  />
+                </Reveal>
               </>
             )}
           </div>

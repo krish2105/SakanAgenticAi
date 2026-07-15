@@ -14,8 +14,8 @@ const badgeVariants = cva(
         // light-theme token but not the brighter dark-theme one; dark ink
         // does the reverse -- hence the dark: override, verified with
         // axe-core in both themes, not just computed by hand.
-        positive: "border-transparent bg-positive text-white dark:text-[#0b1220]",
-        negative: "border-transparent bg-negative text-white dark:text-[#0b1220]",
+        positive: "border-transparent bg-positive text-white dark:text-[#0A1615]",
+        negative: "border-transparent bg-negative text-white dark:text-[#0A1615]",
         muted: "border-border bg-surface-raised text-text-muted",
       },
     },
