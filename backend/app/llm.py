@@ -36,9 +36,9 @@ def _extract_json(text: str) -> dict:
 def _require_key(model: str, key: str | None, env_var: str) -> None:
     if not key:
         raise RuntimeError(
-            f"{env_var} is not set, but model {model!r} requires it. Set it in the "
-            "environment to run the live LangGraph pipeline; agent unit tests mock "
-            "this function instead."
+            f"{env_var} is not set on this deployment, so model {model!r} ran on "
+            "Sakan's deterministic fallback instead of live LLM reasoning. Set "
+            f"{env_var} in the environment to enable it."
         )
 
 

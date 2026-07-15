@@ -38,10 +38,10 @@ def retrieve_clauses(
     """
     if not ENABLE_SEMANTIC_EMBEDDINGS and embedder is None:
         raise RuntimeError(
-            "ENABLE_SEMANTIC_EMBEDDINGS is off -- set GEMINI_API_KEY (free, no local RAM "
-            "cost -- see app/embeddings.py) or ENABLE_SEMANTIC_EMBEDDINGS=true on a host "
-            "with RAM to spare for the local model. compliance_agent_node catches this and "
-            "falls back to its documented 'unable to verify' response."
+            "Semantic search is disabled on this deployment (no embeddings provider "
+            "configured), so compliance falls back to an honest 'unable to verify' "
+            "instead of guessing. Set GEMINI_API_KEY (free tier, see app/embeddings.py) "
+            "or ENABLE_SEMANTIC_EMBEDDINGS=true to enable it."
         )
 
     client = client or build_qdrant_client(QDRANT_URL, api_key=QDRANT_API_KEY)

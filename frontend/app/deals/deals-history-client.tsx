@@ -103,73 +103,75 @@ export function DealsHistoryClient() {
         </div>
       </Reveal>
 
-      <div className="mt-6 flex flex-col gap-3">
-        {isLoading &&
-          Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="rounded-xl border border-border bg-surface p-4">
-              <Skeleton className="h-4 w-2/3" />
-              <Skeleton className="mt-3 h-3 w-1/3" />
-            </div>
-          ))}
+      {(isLoading || error || (deals && deals.length === 0)) && (
+        <div className="mt-6 flex flex-col gap-3">
+          {isLoading &&
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="rounded-xl border border-border bg-surface p-4">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="mt-3 h-3 w-1/3" />
+              </div>
+            ))}
 
-        {!isLoading && error && (
-          <div className="rounded-xl border border-negative/40 bg-surface p-6 text-center">
-            <p className="text-sm text-text-primary">Couldn&apos;t load your deals.</p>
-            <p className="mt-1 text-sm text-text-muted">
-              The backend may be waking up (free tier). Try again in a moment.
-            </p>
-            <Button className="mt-4" size="sm" onClick={() => void load()}>
-              Retry
-            </Button>
-          </div>
-        )}
-
-        {!isLoading && !error && deals && deals.length === 0 && (
-          <div className="rounded-xl border border-border bg-surface p-8 text-center">
-            <p className="text-sm text-text-primary">No deals yet.</p>
-            <p className="mt-1 text-sm text-text-muted">
-              Ask Sakan a deal question and it&apos;ll show up here.
-            </p>
-            <Link href="/">
-              <Button className="mt-4" size="sm">
-                Ask your first question
+          {!isLoading && error && (
+            <div className="rounded-xl border border-negative/40 bg-surface p-6 text-center">
+              <p className="text-sm text-text-primary">Couldn&apos;t load your deals.</p>
+              <p className="mt-1 text-sm text-text-muted">
+                The backend may be waking up (free tier). Try again in a moment.
+              </p>
+              <Button className="mt-4" size="sm" onClick={() => void load()}>
+                Retry
               </Button>
-            </Link>
-          </div>
-        )}
+            </div>
+          )}
 
-        {!isLoading && !error && deals && deals.length > 0 && (
-          <RevealGroup className="contents">
-            {deals.map((deal) => {
-              const meta = STATUS_META[deal.status] ?? STATUS_META.pending;
-              return (
-                <RevealItem key={deal.query_id}>
-                  <Link
-                    href={`/deals/${deal.query_id}`}
-                    className="group block rounded-xl border border-border bg-surface p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-brass/50 hover:shadow-md hover:shadow-brass/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brass"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-text-primary group-hover:text-brass">
-                          {deal.raw_query}
-                        </p>
-                        <p className="mt-1 font-mono text-xs text-text-muted">
-                          Deal #{deal.query_id}
-                          {deal.created_at ? ` · ${formatDate(deal.created_at)}` : ""}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <Badge variant={meta.variant}>{meta.label}</Badge>
-                        <FileText size={16} className="text-text-muted" aria-hidden="true" />
-                      </div>
+          {!isLoading && !error && deals && deals.length === 0 && (
+            <div className="rounded-xl border border-border bg-surface p-8 text-center">
+              <p className="text-sm text-text-primary">No deals yet.</p>
+              <p className="mt-1 text-sm text-text-muted">
+                Ask Sakan a deal question and it&apos;ll show up here.
+              </p>
+              <Link href="/">
+                <Button className="mt-4" size="sm">
+                  Ask your first question
+                </Button>
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!isLoading && !error && deals && deals.length > 0 && (
+        <RevealGroup className="mt-6 flex flex-col gap-3">
+          {deals.map((deal) => {
+            const meta = STATUS_META[deal.status] ?? STATUS_META.pending;
+            return (
+              <RevealItem key={deal.query_id}>
+                <Link
+                  href={`/deals/${deal.query_id}`}
+                  className="group block rounded-xl border border-border bg-surface p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-brass/50 hover:shadow-md hover:shadow-brass/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brass"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-text-primary group-hover:text-brass">
+                        {deal.raw_query}
+                      </p>
+                      <p className="mt-1 font-mono text-xs text-text-muted">
+                        Deal #{deal.query_id}
+                        {deal.created_at ? ` · ${formatDate(deal.created_at)}` : ""}
+                      </p>
                     </div>
-                  </Link>
-                </RevealItem>
-              );
-            })}
-          </RevealGroup>
-        )}
-      </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Badge variant={meta.variant}>{meta.label}</Badge>
+                      <FileText size={16} className="text-text-muted" aria-hidden="true" />
+                    </div>
+                  </div>
+                </Link>
+              </RevealItem>
+            );
+          })}
+        </RevealGroup>
+      )}
     </div>
   );
 }
