@@ -10,10 +10,13 @@ from __future__ import annotations
 import subprocess
 import sys
 import textwrap
+from pathlib import Path
 
 
 from app.routers import billing, whatsapp
 from app.routers.deals import client_ip_key
+
+BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 
 def _import_config_with_env(**env) -> subprocess.CompletedProcess:
@@ -23,7 +26,7 @@ def _import_config_with_env(**env) -> subprocess.CompletedProcess:
     code = "import app.config"
     return subprocess.run(
         [sys.executable, "-c", code],
-        cwd="/home/user/SakanAgenticAi/backend",
+        cwd=BACKEND_DIR,
         env=base,
         capture_output=True,
         text=True,
@@ -63,7 +66,7 @@ def test_development_default_uses_insecure_fallback_not_a_crash():
             "import app.config as c; assert not c.IS_PRODUCTION; "
             "assert c.JWT_SECRET_KEY.startswith('dev-only')"
         )],
-        cwd="/home/user/SakanAgenticAi/backend",
+        cwd=BACKEND_DIR,
         env={"PATH": "/usr/bin:/bin:/usr/local/bin"},
         capture_output=True,
         text=True,
