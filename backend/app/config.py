@@ -103,6 +103,13 @@ LICENSED_DATA_FEED_API_KEY = os.environ.get("LICENSED_DATA_FEED_API_KEY")
 DLD_OPEN_DATA_API_KEY = os.environ.get("DLD_OPEN_DATA_API_KEY")
 DLD_OPEN_DATA_API_SECRET = os.environ.get("DLD_OPEN_DATA_API_SECRET")
 
+# Real DLD-derived transaction data via a RapidAPI marketplace listing (free
+# tier, no Dubai Pulse business registration needed) -- see
+# scripts/ingest_bayut_transactions.py. A different real-data path than the
+# two above: a third party's resale of the same underlying DLD registry,
+# not the government's own channel.
+RAPIDAPI_KEY = os.environ.get("RAPIDAPI_KEY")
+
 def _validate_production_config() -> None:
     """When SAKAN_ENV=production, refuse to boot with a webhook that's enabled
     but unverifiable. Both Stripe and WhatsApp webhooks fall back to accepting

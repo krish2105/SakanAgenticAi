@@ -29,7 +29,7 @@ from typing import Iterator
 
 from app import config
 
-PROVENANCE_VALUES = ("synthetic", "dld_kaggle", "dld_open_free", "licensed_partner")
+PROVENANCE_VALUES = ("synthetic", "dld_kaggle", "dld_open_free", "dld_bayut", "licensed_partner")
 
 
 class DataSourceProvider(ABC):

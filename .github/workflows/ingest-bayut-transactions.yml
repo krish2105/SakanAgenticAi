@@ -1,0 +1,67 @@
+name: Ingest real Bayut/DLD transactions
+
+# Runs backend/scripts/ingest_bayut_transactions.py on a schedule so real
+# transaction data (data_provenance="dld_bayut") keeps flowing in without
+# manual work, instead of the app staying on the 601-row synthetic seed
+# forever. Requires RAPIDAPI_KEY and DATABASE_URL repo secrets, and
+# backend/scripts/bayut_location_ids.json to already exist (see
+# resolve-bayut-locations.yml, run that one first).
+#
+# --max-requests defaults conservatively (see the script) to stay well
+# inside a free RapidAPI plan's monthly request budget across weekly runs.
+
+on:
+  schedule:
+    - cron: "30 4 * * 3" # weekly, Wednesday
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Fetch and report stats without writing to Postgres"
+        type: boolean
+        default: false
+      max_requests:
+        description: "Cap total API calls this run"
+        type: number
+        default: 100
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Ingest real transactions
+        env:
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$RAPIDAPI_KEY" ]; then
+            echo "::warning::RAPIDAPI_KEY secret is not set -- skipping. Add it in repo Settings > Secrets and variables > Actions."
+            exit 0
+          fi
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::warning::DATABASE_URL secret is not set -- skipping. Add it (pointing at the production database) in repo Settings > Secrets and variables > Actions."
+            exit 0
+          fi
+          if [ ! -f scripts/bayut_location_ids.json ]; then
+            echo "::warning::scripts/bayut_location_ids.json does not exist yet -- run the 'Resolve Bayut location IDs' workflow first."
+            exit 0
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            python scripts/ingest_bayut_transactions.py --dry-run --max-requests "${{ inputs.max_requests || 100 }}"
+          else
+            python scripts/ingest_bayut_transactions.py --max-requests "${{ inputs.max_requests || 100 }}"
+          fi

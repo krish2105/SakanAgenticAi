@@ -39,6 +39,13 @@ export function ProvenanceBadge({ provenance }: { provenance?: string }) {
       </Badge>
     );
   }
+  if (provenance === "dld_bayut") {
+    return (
+      <Badge variant="default">
+        <T k="comps.provenanceDldBayut" />
+      </Badge>
+    );
+  }
   if (provenance === "synthetic") {
     return (
       <Badge variant="muted">

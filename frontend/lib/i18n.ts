@@ -114,6 +114,7 @@ const en: Dict = {
   "comps.provenanceSynthetic": "Demo data",
   "comps.provenanceDldKaggle": "DLD (public)",
   "comps.provenanceDldOpenFree": "DLD (official)",
+  "comps.provenanceDldBayut": "DLD (via Bayut)",
   "comps.provenanceLicensedPartner": "Licensed",
 
   "footer.tagline": "Agentic deal intelligence for Dubai real estate. Every claim shows its work.",
@@ -243,6 +244,7 @@ const ar: Dict = {
   "comps.provenanceSynthetic": "بيانات تجريبية",
   "comps.provenanceDldKaggle": "دائرة الأراضي (عامة)",
   "comps.provenanceDldOpenFree": "دائرة الأراضي (رسمية)",
+  "comps.provenanceDldBayut": "دائرة الأراضي (عبر Bayut)",
   "comps.provenanceLicensedPartner": "مرخّصة",
 
   "footer.tagline": "تحليل الصفقات العقارية بالذكاء الاصطناعي الوكيل لسوق دبي. كل ادعاء يوثّق مصدره.",

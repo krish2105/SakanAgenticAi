@@ -1,0 +1,73 @@
+name: Resolve Bayut location IDs
+
+# One-off (re-run only when Sakan's tracked community list changes) helper:
+# runs backend/scripts/resolve_bayut_locations.py and commits its output
+# (backend/scripts/bayut_location_ids.json) back to the branch. Manual
+# trigger only -- this does NOT run on a schedule, unlike the ingestion
+# workflow, since the community list rarely changes and every call spends
+# part of the free RapidAPI plan's monthly request budget.
+#
+# This is also the only practical way to run this against the real API at
+# all: the sandbox this repo was built in has no outbound network path to
+# rapidapi.com (org egress policy), so resolve_bayut_locations.py has only
+# ever been exercised against a mocked HTTP layer in tests -- this workflow
+# run is genuinely the first live call. Check the Action's log output for
+# the raw first-response dump if it comes back empty; see the script's
+# docstring for how to adjust the parsing if the API's actual shape differs.
+
+on:
+  workflow_dispatch:
+    inputs:
+      community:
+        description: "Resolve just this one community (print only, does not commit). Leave blank to resolve all and commit."
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Resolve location IDs
+        env:
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
+        run: |
+          if [ -z "$RAPIDAPI_KEY" ]; then
+            echo "::error::RAPIDAPI_KEY secret is not set. Add it in repo Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          if [ -n "${{ inputs.community }}" ]; then
+            python scripts/resolve_bayut_locations.py --community "${{ inputs.community }}"
+          else
+            python scripts/resolve_bayut_locations.py
+          fi
+
+      - name: Commit updated mapping
+        if: ${{ inputs.community == '' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- scripts/bayut_location_ids.json; then
+            echo "No changes to commit."
+          else
+            git add scripts/bayut_location_ids.json
+            git commit -m "Update Bayut location ID mapping"
+            git push
+          fi
